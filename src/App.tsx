@@ -156,7 +156,7 @@ const KIND_FILTERS: { label: string; kinds?: HitKind[]; scope?: Scope }[] = [
 function SearchPane({ index, bookId, onOpen, selected }: { index?: EditionIndex; bookId?: string; onOpen: (n: Nav) => void; selected?: string }) {
   const [q, setQ] = useState(() => pref.get('q') ?? '');
   const [filter, setFilter] = useState(0);
-  const [tier, setTier] = useState<Tier | undefined>();
+  const tier: Tier | undefined = undefined; // tier filter removed from the search bar (2026-11-16)
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => { pref.set('q', q); }, [q]);
   const searching = q.trim().length >= 2;
@@ -178,9 +178,6 @@ function SearchPane({ index, bookId, onOpen, selected }: { index?: EditionIndex;
       </div>
       <div className="filters kinds">
         {KIND_FILTERS.map((f, i) => <button key={f.label} className={i === filter ? 'on' : ''} onClick={() => setFilter(i)}>{f.label}</button>)}
-      </div>
-      <div className="filters tiers">
-        {([['Any', undefined], ['Core', 'core'], ['Expanded', 'expanded']] as [string, Tier | undefined][]).map(([l, t]) => <button key={l} className={t === tier ? 'on' : ''} onClick={() => setTier(t)}>{l}</button>)}
       </div>
       {searching && !hits.length && <div className="empty">Nothing matches “{q}”{bookTitle ? ' in this book' : ''}.</div>}
       {listing && <p className="muted small">{hits.length} {hits.length === 1 ? 'entry' : 'entries'} in {bookTitle}, in page order. Type to search within it.</p>}
