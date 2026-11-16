@@ -5,6 +5,8 @@ import { normName, parseRuleRef } from './normalize';
 import { buildMentionIndex, resolveRule, type MentionIndex } from './store';
 
 export type HitKind = 'rule' | 'unit' | 'weapon' | 'wargear' | 'other';
+// Narrows rule hits by their category: cats = only these; notCats = all except these.
+export interface Scope { cats?: string[]; notCats?: string[] }
 export interface Hit { id: string; ref: string; kind: HitKind; name: string; category: string; faction?: string; tier?: Tier; score: number; snippet: string; page?: string; book?: string }
 export interface Book { id: string; title: string; version?: string; kind: SourceKind; rules: number; entities: number }
 
@@ -12,8 +14,8 @@ interface Doc { id: string; kind: HitKind; name: string; aliases: string; tags: 
   pg: Record<string, string>; cur: string } // pg: book id → page, for every book that prints (or amends) this entry; cur: the book of the current reading
 
 export interface EditionIndex {
-  search: (q: string, limit?: number, kinds?: HitKind[], tier?: Tier, bookId?: string) => Hit[];
-  list: (bookId: string, kinds?: HitKind[], tier?: Tier) => Hit[]; // everything from one book, in page order
+  search: (q: string, limit?: number, kinds?: HitKind[], tier?: Tier, bookId?: string, scope?: Scope) => Hit[];
+  list: (bookId: string, kinds?: HitKind[], tier?: Tier, scope?: Scope) => Hit[]; // everything from one book, in page order
   books: Book[];
   bookPages: Map<string, Record<string, string>>; // rule or unit id → book id → page
   mentions: MentionIndex;
@@ -85,10 +87,12 @@ export async function buildEditionIndex(db: LibraryDB, editionId: string): Promi
   const aliasNorm = new Map<string, string>();
   rules.forEach((r) => r.aliases.forEach((a) => aliasNorm.set(normName(a), 'r:' + r.id)));
 
-  const mkFilter = (kinds?: HitKind[], tier?: Tier, bookId?: string) =>
-    kinds?.length || tier || bookId
-      ? ((r: { kind: HitKind; tier?: string; pg?: Record<string, string> }) =>
-        (!kinds?.length || kinds.includes(r.kind)) && (!tier || r.tier === tier) && (!bookId || bookId in (r.pg ?? {}))) as never
+  const mkFilter = (kinds?: HitKind[], tier?: Tier, bookId?: string, scope?: Scope) =>
+    kinds?.length || tier || bookId || scope?.cats?.length || scope?.notCats?.length
+      ? ((r: { kind: HitKind; tier?: string; category?: string; pg?: Record<string, string> }) =>
+        (!kinds?.length || kinds.includes(r.kind)) && (!tier || r.tier === tier) && (!bookId || bookId in (r.pg ?? {}))
+        && (!scope?.cats?.length || scope.cats.includes(r.category ?? ''))
+        && (!scope?.notCats?.length || !scope.notCats.includes(r.category ?? ''))) as never
       : undefined;
   const toHit = (r: Record<string, any>, terms: string[], bookId: string | undefined, score: number): Hit => { // eslint-disable-line @typescript-eslint/no-explicit-any
     const sid: string = bookId ?? r.cur;
@@ -100,10 +104,10 @@ export async function buildEditionIndex(db: LibraryDB, editionId: string): Promi
   };
   const pageNo = (h: Hit) => parseFloat(h.page ?? '') || 9999;
 
-  const search = (q: string, limit = 30, kinds?: HitKind[], tier?: Tier, bookId?: string): Hit[] => {
+  const search = (q: string, limit = 30, kinds?: HitKind[], tier?: Tier, bookId?: string, scope?: Scope): Hit[] => {
     const query = parseRuleRef(q).name.trim(); // "rending (4+)" searches "rending"
     if (!query) return [];
-    const filter = mkFilter(kinds, tier, bookId);
+    const filter = mkFilter(kinds, tier, bookId, scope);
     let res = ms.search(query, { filter });
     if (!res.length) res = ms.search(query, { combineWith: 'OR', filter });
     const exact = byNorm.get(normName(query)) ?? aliasNorm.get(normName(query));
@@ -112,8 +116,8 @@ export async function buildEditionIndex(db: LibraryDB, editionId: string): Promi
     return hits.sort((a, b) => b.score - a.score).slice(0, limit);
   };
 
-  const list = (bookId: string, kinds?: HitKind[], tier?: Tier): Hit[] =>
-    ms.search(MiniSearch.wildcard, { filter: mkFilter(kinds, tier, bookId) }).map((r) => toHit(r, [], bookId, 0))
+  const list = (bookId: string, kinds?: HitKind[], tier?: Tier, scope?: Scope): Hit[] =>
+    ms.search(MiniSearch.wildcard, { filter: mkFilter(kinds, tier, bookId, scope) }).map((r) => toHit(r, [], bookId, 0))
       .sort((a, b) => pageNo(a) - pageNo(b) || a.name.localeCompare(b.name));
 
   const bookPages = new Map<string, Record<string, string>>([...docs, ...entityDocs].map((d) => [d.id.slice(2), d.pg]));

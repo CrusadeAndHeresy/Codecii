@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { db } from './db';
 import type { Edition, Entity, GameSystem, LibImage, Rule, Source, Tier } from './model';
-import { buildEditionIndex, type EditionIndex, type Hit, type HitKind } from './search';
+import { buildEditionIndex, type EditionIndex, type Hit, type HitKind, type Scope } from './search';
 import { csvToImport, FORMAT, planImport, type ImportFile, type ImportPlan } from './importer';
 import { applyImport, eraseAll, loadRuleView, preferPrinting, removeSource, removeSystem, resolveById, setSectionTier, setStatus, type RuleView } from './store';
 import { buildCombo, loadEntityView, type Combo, type EntityView, type InPlay, type ProfileView, type SwapView, type TrayRef, type WargearView } from './views';
@@ -141,8 +141,16 @@ export default function App() {
 
 interface NavProps { open: (n: Nav) => void; back?: () => void; inTray: (r: TrayRef) => boolean; toggleTray: (r: TrayRef) => void }
 
-const KIND_FILTERS: { label: string; kinds?: HitKind[] }[] = [
-  { label: 'All' }, { label: 'Rules', kinds: ['rule'] }, { label: 'Units', kinds: ['unit'] }, { label: 'Wargear', kinds: ['weapon', 'wargear', 'other'] },
+// Every rule category the books use, grouped so each filter covers a whole area of the rules.
+const MISSION_CATS = ['Mission', 'Mission Special Rule', 'Primary Objective', 'Secondary Objective', 'Objectives', 'Deployment Map'];
+const DETACHMENT_CATS = ['Detachment', 'Primary Detachment', 'Prime Advantage', 'Army Selection'];
+const KIND_FILTERS: { label: string; kinds?: HitKind[]; scope?: Scope }[] = [
+  { label: 'All' },
+  { label: 'Rules', kinds: ['rule'], scope: { notCats: [...MISSION_CATS, ...DETACHMENT_CATS] } },
+  { label: 'Missions', kinds: ['rule'], scope: { cats: MISSION_CATS } },
+  { label: 'Detachments', kinds: ['rule'], scope: { cats: DETACHMENT_CATS } },
+  { label: 'Units', kinds: ['unit'] },
+  { label: 'Wargear', kinds: ['weapon', 'wargear', 'other'] },
 ];
 
 function SearchPane({ index, bookId, onOpen, selected }: { index?: EditionIndex; bookId?: string; onOpen: (n: Nav) => void; selected?: string }) {
@@ -155,8 +163,8 @@ function SearchPane({ index, bookId, onOpen, selected }: { index?: EditionIndex;
   const listing = !searching && !!bookId; // no query but a book picked: show everything in it, in page order
   const hits = useMemo(() => {
     if (!index) return [];
-    if (searching) return index.search(q, 40, KIND_FILTERS[filter].kinds, tier, bookId);
-    return bookId ? index.list(bookId, KIND_FILTERS[filter].kinds, tier) : [];
+    if (searching) return index.search(q, 40, KIND_FILTERS[filter].kinds, tier, bookId, KIND_FILTERS[filter].scope);
+    return bookId ? index.list(bookId, KIND_FILTERS[filter].kinds, tier, KIND_FILTERS[filter].scope) : [];
   }, [index, q, filter, tier, bookId]);
   const bookTitle = index?.books.find((b) => b.id === bookId)?.title;
   return (
@@ -168,9 +176,10 @@ function SearchPane({ index, bookId, onOpen, selected }: { index?: EditionIndex;
         {q && <button className="clear" aria-label="Clear" onClick={() => { setQ(''); input.current?.focus(); }}>×</button>}
       </div>
       </div>
-      <div className="filters">
+      <div className="filters kinds">
         {KIND_FILTERS.map((f, i) => <button key={f.label} className={i === filter ? 'on' : ''} onClick={() => setFilter(i)}>{f.label}</button>)}
-        <span className="sep" />
+      </div>
+      <div className="filters tiers">
         {([['Any', undefined], ['Core', 'core'], ['Expanded', 'expanded']] as [string, Tier | undefined][]).map(([l, t]) => <button key={l} className={t === tier ? 'on' : ''} onClick={() => setTier(t)}>{l}</button>)}
       </div>
       {searching && !hits.length && <div className="empty">Nothing matches “{q}”{bookTitle ? ' in this book' : ''}.</div>}
