@@ -6,6 +6,7 @@ import { csvToImport, FORMAT, planImport, type ImportFile, type ImportPlan } fro
 import { applyImport, eraseAll, loadRuleView, preferPrinting, removeSource, removeSystem, resolveById, setSectionTier, setStatus, type RuleView } from './store';
 import { buildCombo, loadEntityView, type Combo, type EntityView, type InPlay, type ProfileView, type SwapView, type TrayRef, type WargearView } from './views';
 import type { ReactNode } from 'react';
+import { signOut } from './auth';
 
 type Tab = 'search' | 'browse' | 'import' | 'library';
 // Navigation: "r:<ruleId>", "e:<entityId>", "c:tray" (rules together from the tray), "c:<TrayRef>" (one item's rules together)
@@ -815,6 +816,10 @@ function LibraryPane({ onChange, version, onErased }: { onChange: () => void; ve
         </section>
       )}
       <p className="muted small">Stored on this device and works offline. Your transcribed rules text is for your own use; it isn't shared.</p>
+      <section>
+        <h3>Account</h3>
+        <button className="small-btn" onClick={() => { void signOut(); }}>Sign out</button>
+      </section>
     </div>
   );
 }

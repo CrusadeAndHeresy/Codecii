@@ -237,7 +237,8 @@ describe('Horus Heresy 3.0 core rulebook import', () => {
     await applyImport(hdb, planImport(JSON.parse(fs.readFileSync(path, 'utf8'))));
     const ix2 = await buildEditionIndex(hdb, 'horus-heresy@3-0');
     expect(ix2.search('rending')[0].tier).toBe('core');
-    expect(ix2.search('overwatch')[0].tier).toBe('expanded');
+    // choosing Core for one section must not touch the others (Terrain stays Expanded)
+    expect(ix2.search('open terrain')[0].tier).toBe('expanded');
     // units with sub-types link to the right rules
     await applyImport(hdb, planImport({ format: 'rules-library/v1', system: { name: 'Horus Heresy' }, edition: { name: '3.0' },
       source: { title: 'Test Units', kind: 'user', published: '2025-08-01' },
