@@ -1,0 +1,15 @@
+{
+  // Static site served by a Worker (the same setup as Creatio). The name must match the Worker created in the Cloudflare dashboard.
+  "name": "codecii",
+  "compatibility_date": "2026-11-17",
+  "assets": {
+    // Output of `npm run build`.
+    "directory": "./dist",
+    // The app is a single page; unknown paths load index.html.
+    "not_found_handling": "single-page-application"
+  },
+  // Attaches the subdomain and creates its DNS record and certificate on deploy.
+  "routes": [
+    { "pattern": "codecii.crusadeandheresy.com", "custom_domain": true }
+  ]
+}

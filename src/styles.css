@@ -181,3 +181,15 @@ button.link.inline { min-height: 0; padding: 4px 0; }
 .rule-image { margin: 12px 0; }
 .rule-image img { display: block; max-width: 100%; height: auto; background: #fff; border-radius: 8px; }
 .rule-image figcaption { font-size: 13px; opacity: 0.7; margin-top: 4px; }
+
+/* Sign-in screen */
+.auth { min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 24px var(--gutter, 16px); padding-top: calc(24px + env(safe-area-inset-top, 0px)); }
+.auth-card { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 14px; }
+.auth-card h1 { margin: 0; font-size: 1.5rem; }
+.auth-card p { margin: 0; }
+.auth-card label { display: flex; flex-direction: column; gap: 6px; font-size: .85rem; color: var(--muted); font-weight: 600; }
+.auth-card input { min-height: 48px; padding: 10px 12px; font-size: 1rem; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--text); outline: none; }
+.auth-card input:focus { border-color: var(--gold, var(--text)); }
+.auth-go { min-height: 48px; border-radius: 10px; border: 0; font-weight: 700; background: var(--gold, var(--text)); color: var(--bg); cursor: pointer; }
+.auth-go:disabled { opacity: .5; cursor: default; }
+.auth-error { color: var(--err-line); font-size: .9rem; }
