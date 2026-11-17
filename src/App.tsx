@@ -2,13 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { db } from './db';
 import type { Edition, Entity, GameSystem, LibImage, Rule, Source, Tier } from './model';
 import { buildEditionIndex, type EditionIndex, type Hit, type HitKind, type Scope } from './search';
-import { csvToImport, FORMAT, planImport, type ImportFile, type ImportPlan } from './importer';
+import { csvToImport, FORMAT, planImport, statText, type ImportFile, type ImportPlan } from './importer';
 import { applyImport, eraseAll, loadRuleView, preferPrinting, removeSource, removeSystem, resolveById, setSectionTier, setStatus, type RuleView } from './store';
 import { buildCombo, loadEntityView, type Combo, type EntityView, type InPlay, type ProfileView, type SwapView, type TrayRef, type WargearView } from './views';
 import type { ReactNode } from 'react';
 import { signOut } from './auth';
+import ArmyPane from './ArmyPane';
 
-type Tab = 'search' | 'browse' | 'import' | 'library';
+type Tab = 'search' | 'browse' | 'army' | 'import' | 'library';
 // Navigation: "r:<ruleId>", "e:<entityId>", "c:tray" (rules together from the tray), "c:<TrayRef>" (one item's rules together)
 type Nav = string;
 
@@ -88,11 +89,12 @@ export default function App() {
     <>
       {tab === 'search' && <SearchPane index={index} bookId={bookId} onOpen={openFresh} selected={current} />}
       {tab === 'browse' && <BrowsePane index={index} bookId={bookId} editionId={editionId} version={version} onOpen={openFresh} />}
+      {tab === 'army' && <ArmyPane index={index} editionId={editionId} open={open} />}
       {tab === 'import' && <ImportPane onDone={(edId) => { setEditionId(edId); bump(); setTab('search'); }} />}
       {tab === 'library' && <LibraryPane onChange={bump} version={version} onErased={() => { setTray([]); setStack([]); bump(); }} />}
     </>
   );
-  const showDetail = !wide && current && (tab === 'search' || tab === 'browse');
+  const showDetail = !wide && current && (tab === 'search' || tab === 'browse' || tab === 'army');
 
   return (
     <div className="app">
@@ -124,14 +126,14 @@ export default function App() {
       ) : showDetail ? detail : main}
 
       {tray.length > 0 && current !== 'c:tray' && (
-        <button className="traybar" onClick={() => { if (tab !== 'search' && tab !== 'browse') setTab('search'); open('c:tray'); }}>
+        <button className="traybar" onClick={() => { if (tab !== 'search' && tab !== 'browse' && tab !== 'army') setTab('search'); open('c:tray'); }}>
           <span>Rules together</span><span className="count">{tray.length}</span><span>›</span>
         </button>
       )}
       <nav className="tabs">
-        {(['search', 'browse', 'import', 'library'] as Tab[]).map((t) => (
+        {(['search', 'browse', 'army', 'import', 'library'] as Tab[]).map((t) => (
           <button key={t} className={tab === t ? 'on' : ''} onClick={() => { setTab(t); if (!wide) setStack([]); }}>
-            {{ search: 'Search', browse: 'Browse', import: 'Import', library: 'Library' }[t]}
+            {{ search: 'Search', browse: 'Browse', army: 'Army', import: 'Import', library: 'Library' }[t]}
           </button>
         ))}
       </nav>
@@ -430,7 +432,7 @@ function EntityCard({ entityId, nav }: { entityId: string; nav: NavProps }) {
         <button className="small-btn" onClick={() => nav.open('c:' + ref)}>See all rules together</button>
       </div>
       {!multi && e.stats.length > 0 && (
-        <div className="statline">{e.stats.map((s) => <div key={s.label}><span>{s.label}</span><b>{s.value}</b></div>)}</div>
+        <div className="statline">{e.stats.map((s) => <div key={s.label}><span>{s.label}</span><b>{statText(s.value)}</b></div>)}</div>
       )}
       {v.source && <div className="source">{srcLabel(v.source, e.page)}</div>}
 
@@ -475,7 +477,7 @@ function EntityCard({ entityId, nav }: { entityId: string; nav: NavProps }) {
 function ProfileDrop({ p, nav, index, swaps }: { p: ProfileView; nav: NavProps; index: number; swaps: SwapView[] }) {
   return (
     <Dropdown title={p.names.join(' / ')} open id={`profile-${index}`}>
-      {p.stats.length > 0 && <div className="statline">{p.stats.map((s) => <div key={s.label}><span>{s.label}</span><b>{s.value}</b></div>)}</div>}
+      {p.stats.length > 0 && <div className="statline">{p.stats.map((s) => <div key={s.label}><span>{s.label}</span><b>{statText(s.value)}</b></div>)}</div>}
       <ProfileBody p={p} nav={nav} swaps={swaps} />
     </Dropdown>
   );

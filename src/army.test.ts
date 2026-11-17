@@ -1,0 +1,98 @@
+import 'fake-indexeddb/auto';
+import fs from 'node:fs';
+import { describe, expect, it } from 'vitest';
+import { LibraryDB } from './db';
+import { planImport } from './importer';
+import { applyImport } from './store';
+import { buildEditionIndex } from './search';
+import { buildArmy, canonRole, groupByRole, makeLookup, matchUnit, nameScore, parseGear, unitModels, unitPoints, SURE, type ArmyUnit } from './army';
+import { joinOverlap, readArmyText } from './armyRead';
+import { buildCombo } from './views';
+
+describe('roles and names', () => {
+  it('reads a role from a list heading, and ignores detachment names', () => {
+    expect(canonRole('HQ')).toBe('Command');
+    expect(canonRole('Heavy Support')).toBe('Heavy Support');
+    expect(canonRole('Dedicated Transport')).toBe('Transport');
+    expect(canonRole('Fast-Attack Slot')).toBe('Fast Attack');
+    expect(canonRole('War-engine')).toBe('War-engine');
+    expect(canonRole('Linebreaker Primary Detachment')).toBeUndefined();
+  });
+  it('treats "Legion Tactical Squad" and "Tactical Squad" as the same unit', () => {
+    expect(nameScore('Legion Tactical Squad', 'Tactical Squad')).toBe(1);
+    expect(nameScore('Rhino', 'Land Raider')).toBeLessThan(0.5);
+  });
+  it('joins screenshots, dropping the lines repeated where one overlaps the next', () => {
+    expect(joinOverlap([['a', 'b', 'c', 'd'], ['c', 'd', 'e']])).toEqual(['a', 'b', 'c', 'd', 'e']);
+  });
+});
+
+describe('wargear lines', () => {
+  const look = { gear: (s: string) => (/bolt rifle/i.test(s) ? ({ id: 'e#bolt-rifle', name: 'Bolt rifle' } as never) : undefined), rule: () => undefined };
+  it('reads counts, labels and models, and skips who is in the unit', () => {
+    const g = parseGear(['3 Aquilon Terminators, Prime Advantage: Hetaeron Guard, 3× bolt rifles (+15 pts)'], 'Aquilon Terminator Sodality', look);
+    expect(g.map((x) => [x.name, x.kind, x.count, x.label])).toEqual([
+      ['Hetaeron Guard', 'text', undefined, 'Prime Advantage'],
+      ['bolt rifles', 'weapon', 3, undefined],
+    ]);
+  });
+});
+
+const dir = '/home/claude/out';
+const have = fs.existsSync(`${dir}/hh3-core-rulebook.json`) && fs.existsSync(`${dir}/hh3-liber-hereticus.json`);
+
+describe.skipIf(!have)('an army list against the real library', () => {
+  const LIST = `Test Heresy List - Horus Heresy (Age of Darkness) - [595pts]
+
+Crusade Force Organisation Chart [595pts]
+HQ
+Praetor [120pts]: Power weapon, Bolt pistol
+Troops
+Legion Tactical Squad [175pts]: 15x Legionary, Legion Tactical Sergeant, Combi-melta
+Legion Tactical Squad [100pts]: 9x Legionary, Legion Tactical Sergeant
+Heavy Support
+Predator [130pts]: Predator cannon, Heavy bolter sponsons
+Dedicated Transport
+Rhino [35pts]
+Rhino [35pts]`;
+
+  it('makes one card per unit, groups them by role, and links wargear and rules', async () => {
+    const db = new LibraryDB('army-test');
+    for (const f of ['hh3-core-rulebook', 'hh3-liber-hereticus', 'hh3-liber-astartes', 'hh3-imperialis-militia']) {
+      if (fs.existsSync(`${dir}/${f}.json`)) await applyImport(db, planImport(JSON.parse(fs.readFileSync(`${dir}/${f}.json`, 'utf8'))));
+    }
+    const edId = (await db.editions.toArray())[0].id;
+    const index = await buildEditionIndex(db, edId);
+    const ents = await db.entities.where('editionId').equals(edId).toArray();
+    const army = buildArmy(readArmyText(LIST), { editionId: edId, units: ents.filter((e) => e.type === 'unit'), look: makeLookup(ents, [...index.rules.values()]) });
+
+    // 6 lines in the list, but Tactical Squad and Rhino each appear twice: 4 cards
+    expect(army.units.map((u) => u.listName)).toEqual(['Praetor', 'Legion Tactical Squad', 'Predator', 'Rhino']);
+    const tac = army.units[1], rhino = army.units[3];
+    expect(tac.copies.map((c) => c.models)).toEqual([16, 10]);
+    expect(rhino.copies).toHaveLength(2);
+    expect(unitModels(tac)).toBe(26);
+    expect(unitPoints(tac)).toBe(275);
+    expect(army.total).toBe(595);
+    expect(army.sum).toBe(595);
+
+    // each is matched to the library, and the name-only match is trusted
+    for (const u of army.units) expect(u.entityId, u.listName).toBeTruthy();
+    expect(ents.find((e) => e.id === tac.entityId)!.name).toBe('Tactical Squad');
+    expect(tac.matchScore).toBeGreaterThanOrEqual(SURE);
+
+    // roles come from the list's own headings (the library has no role for these yet)
+    const g = groupByRole(army.units, new Map(ents.map((e) => [e.id, e])));
+    expect(g.map((x) => x.role)).toEqual(['Command', 'Troops', 'Heavy Support', 'Transport']);
+
+    // weapons in the list are linked to library weapons; the models are not treated as wargear
+    const pred = army.units[2].copies[0].gear;
+    expect(pred.find((x) => /predator cannon/i.test(x.name))?.entityId).toBeTruthy();
+    expect(tac.copies[0].gear.some((x) => /legionary/i.test(x.name))).toBe(false);
+
+    // the rules on a card come from the unit and its wargear, and open on the rule card
+    const combo = await buildCombo(db, [`e:${tac.entityId!}`], index.mentions);
+    expect(combo.rules.length).toBeGreaterThan(0);
+    expect(matchUnit('Predator', ents.filter((e) => e.type === 'unit')).entity?.name).toBe('Predator');
+  }, 60000);
+});
