@@ -17,7 +17,16 @@ export default defineConfig(({ mode }) => ({
             background_color: '#111317', theme_color: '#111317',
             icons: [{ src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' }],
           },
-          workbox: { globPatterns: ['**/*.{js,css,html,svg}'] },
+          workbox: {
+            globPatterns: ['**/*.{js,css,html,svg}'],
+            // The list readers (PDF and screenshot) are big; they are kept after first use, not downloaded with the app.
+            globIgnores: ['vendor/**'],
+            runtimeCaching: [{
+              urlPattern: ({ url }: { url: URL }) => url.pathname.includes('/vendor/'),
+              handler: 'CacheFirst',
+              options: { cacheName: 'readers', cacheableResponse: { statuses: [0, 200] }, expiration: { maxEntries: 40 } },
+            }],
+          },
         }),
   ],
   build: { outDir: mode === 'single' ? 'dist-single' : 'dist' },
