@@ -15,6 +15,7 @@ describe('roles and names', () => {
     expect(canonRole('Heavy Support')).toBe('Heavy Support');
     expect(canonRole('Dedicated Transport')).toBe('Transport');
     expect(canonRole('Fast-Attack Slot')).toBe('Fast Attack');
+    expect(canonRole('Fortifications')).toBe('Fortification');
     expect(canonRole('War-engine')).toBe('War-engine');
     expect(canonRole('Linebreaker Primary Detachment')).toBeUndefined();
   });
@@ -81,9 +82,9 @@ Rhino [35pts]`;
     expect(ents.find((e) => e.id === tac.entityId)!.name).toBe('Tactical Squad');
     expect(tac.matchScore).toBeGreaterThanOrEqual(SURE);
 
-    // roles come from the list's own headings (the library has no role for these yet)
+    // roles come from the library (read from the book's role icons); the list's own headings only fill gaps
     const g = groupByRole(army.units, new Map(ents.map((e) => [e.id, e])));
-    expect(g.map((x) => x.role)).toEqual(['Command', 'Troops', 'Heavy Support', 'Transport']);
+    expect(g.map((x) => x.role)).toEqual(['High Command', 'Troops', 'Armour', 'Transport']);
 
     // weapons in the list are linked to library weapons; the models are not treated as wargear
     const pred = army.units[2].copies[0].gear;

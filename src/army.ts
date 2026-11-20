@@ -47,7 +47,7 @@ export interface Army {
 
 // Order the cards are shown in. Heavy Support is kept for lists from other systems.
 export const ROLES = ['Warlord', 'High Command', 'Command', 'Retinue', 'Elites', 'Troops', 'Support', 'Recon', 'Fast Attack',
-  'Heavy Assault', 'Heavy Support', 'War-engine', 'Armour', 'Lord of War', 'Transport', 'Heavy Transport'];
+  'Heavy Assault', 'Heavy Support', 'War-engine', 'Armour', 'Lord of War', 'Transport', 'Heavy Transport', 'Fortification'];
 export const UNASSIGNED = 'No role yet';
 
 const ROLE_KEYS: Record<string, string> = {
@@ -56,6 +56,7 @@ const ROLE_KEYS: Record<string, string> = {
   fastattack: 'Fast Attack', heavyassault: 'Heavy Assault', heavysupport: 'Heavy Support', warengine: 'War-engine', warengines: 'War-engine',
   armour: 'Armour', armor: 'Armour', lordofwar: 'Lord of War', lordsofwar: 'Lord of War',
   transport: 'Transport', dedicatedtransport: 'Transport', heavytransport: 'Heavy Transport',
+  fortification: 'Fortification', fortifications: 'Fortification',
 };
 // "Heavy Support", "HQ", "Fast-Attack Slot" → the role's own name; anything else (a detachment name) is not a role.
 export function canonRole(s?: string): string | undefined {
