@@ -37,6 +37,10 @@ describe('wargear lines', () => {
       ['bolt rifles', 'weapon', 3, undefined],
     ]);
   });
+  it('keeps brackets together and drops the type prefix and [brackets] on list items', () => {
+    const g = parseGear(['Infantry (Champion, Heavy) great frost blade, [Legiones Astartes], Infantry (Command) paragon blade'], 'Varagyr', look);
+    expect(g.map((x) => x.name)).toEqual(['great frost blade', 'Legiones Astartes', 'paragon blade']);
+  });
 });
 
 const dir = '/home/claude/out';

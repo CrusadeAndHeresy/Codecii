@@ -85,11 +85,13 @@ export default function ArmyPane({ index, editionId, open }: { index?: EditionIn
           <h3>Saved armies</h3>
           <ul className="results flush">
             {armies.map((a) => (
-              <li key={a.id}>
+              <li key={a.id} className="army-li">
                 <button className="row" onClick={() => pick(a.id)}>
                   <span className="r-name">{a.name}</span>
                   <span className="muted small">{a.units.length} unit{a.units.length === 1 ? '' : 's'} · {a.units.reduce((t, u) => t + unitPoints(u), 0)} pts</span>
                 </button>
+                <button className="small-btn army-del" aria-label={`Delete ${a.name}`}
+                  onClick={async () => { if (confirm(`Delete “${a.name}”? This cannot be undone.`)) { await db.armies.delete(a.id); await load(); } }}>Delete</button>
               </li>
             ))}
           </ul>

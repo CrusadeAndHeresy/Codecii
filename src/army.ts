@@ -151,6 +151,21 @@ export function makeLookup(entities: Entity[], rules: Rule[]): GearLookup {
 let gid = 0;
 const newId = (p: string) => `${p}${Date.now().toString(36)}${(gid++).toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
+// split a list line on commas/semicolons/plus, but not inside brackets: "Infantry (Champion, Heavy) great frost blade"
+function splitTop(text: string): string[] {
+  const out: string[] = []; let depth = 0; let cur = '';
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '(' || ch === '[') depth++;
+    else if (ch === ')' || ch === ']') depth = Math.max(0, depth - 1);
+    if (depth === 0 && (ch === ',' || ch === ';')) { out.push(cur); cur = ''; continue; }
+    if (depth === 0 && ch === '+' && /\s/.test(text[i - 1] ?? '') && /\s/.test(text[i + 1] ?? '')) { out.push(cur); cur = ''; continue; }
+    cur += ch;
+  }
+  out.push(cur);
+  return out.map((x) => x.trim()).filter(Boolean);
+}
+
 // "3× lastrum storm bolter", "Prime Advantage: Hetaeron Guard", "Sergeant: power sword, bolt pistol (+5 pts)"
 export function parseGear(details: string[], unitName: string, look: GearLookup, modelNames: string[] = []): ArmyGear[] {
   const out: ArmyGear[] = [];
@@ -167,10 +182,11 @@ export function parseGear(details: string[], unitName: string, look: GearLookup,
       const m = /^([^:,]{2,40}):\s*(.+)$/.exec(rest);
       if (m) { forModel = m[1].trim(); rest = m[2]; }
     }
-    for (let item of rest.split(/,\s*|;\s*|\s\+\s/)) {
+    for (let item of splitTop(rest)) {
       let label = lineLabel;
       const im = LABELS.exec(item.trim());           // "…, Prime Advantage: Hetaeron Guard, …" inside one line
       if (im) { label = pretty(im[1]); item = item.trim().slice(im[0].length); }
+      item = item.trim().replace(/^\[(.+)\]$/, '$1').replace(/^(?:infantry|cavalry|vehicle|walker|automata|monstrous creature|bike|jetbike|jump infantry)\s*\([^)]*\)\s+(?=\S)/i, '');
       item = item.replace(/\(\s*\+?\s*\d+\s*(?:pts?|points?)\s*\)|\+\s*\d+\s*(?:pts?|points?)/gi, '').replace(/\s+/g, ' ').trim();
       if (!item || !/[A-Za-z]/.test(item)) continue;
       let model = forModel;
