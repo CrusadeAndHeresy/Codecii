@@ -4,12 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { db } from './db';
 import type { Entity } from './model';
 import type { EditionIndex } from './search';
-import { buildCombo, type InPlay, type TrayRef } from './views';
+import { buildUnitCard, type UnitCardModel } from './unitCard';
+import { GearDrop, RuleSection, StatLine } from './RuleDrops';
 import {
   buildArmy, groupByRole, makeLookup, ROLES, roleOf, SURE, unitModels, unitPoints,
-  type Army, type ArmyCopy, type ArmyGear, type ArmyUnit, type Reading,
+  type Army, type ArmyCopy, type ArmyGear, type ArmyUnit, type GearLookup, type Reading,
 } from './army';
-import { statText } from './importer';
 import { readArmyFiles, readArmyText } from './armyRead';
 
 const store = {
@@ -106,6 +106,8 @@ function ArmyPage({ army, ents, index, open, edit, setEdit, onBack, onSave, onDe
   onBack: () => void; onSave: (a: Army) => Promise<void>; onDelete: () => void;
 }) {
   const groups = useMemo(() => groupByRole(army.units, ents), [army, ents]);
+  const look = useMemo(() => makeLookup([...ents.values()], [...index.rules.values()]), [ents, index]);
+  const [fold, setFold] = useState({ n: 0, folded: false });
   const total = army.units.reduce((t, u) => t + unitPoints(u), 0);
   const setUnit = (u: ArmyUnit | null, id: string) => onSave({ ...army, units: u ? army.units.map((x) => (x.id === id ? u : x)) : army.units.filter((x) => x.id !== id) });
   const unsure = army.units.filter((u) => !u.entityId || (u.matchScore ?? 0) < SURE).length;
@@ -120,13 +122,15 @@ function ArmyPage({ army, ents, index, open, edit, setEdit, onBack, onSave, onDe
       {unsure > 0 && <div className="note">{unsure} unit{unsure === 1 ? ' needs' : 's need'} a quick check: tap Edit to confirm which library unit it is.</div>}
       <div className="row-btns">
         <button className={`small-btn${edit ? ' on' : ''}`} onClick={() => setEdit(!edit)}>{edit ? 'Done' : 'Edit'}</button>
+        <button className="small-btn" onClick={() => setFold((f) => ({ n: f.n + 1, folded: true }))}>Fold all</button>
+        <button className="small-btn" onClick={() => setFold((f) => ({ n: f.n + 1, folded: false }))}>Unfold all</button>
         {edit && <button className="small-btn danger" onClick={onDelete}>Delete army</button>}
       </div>
       {groups.map((g) => (
         <section key={g.role}>
           <h3 className="rolehead">{g.role}<span>{g.units.length} · {g.pts} pts</span></h3>
           {g.units.map((u) => (
-            <UnitCard key={u.id} unit={u} entity={u.entityId ? ents.get(u.entityId) : undefined} ents={ents} index={index} open={open} edit={edit}
+            <UnitCard key={u.id} unit={u} entity={u.entityId ? ents.get(u.entityId) : undefined} look={look} index={index} open={open} edit={edit} fold={fold}
               onChange={(next) => setUnit(next, u.id)} />
           ))}
         </section>
@@ -137,43 +141,36 @@ function ArmyPage({ army, ents, index, open, edit, setEdit, onBack, onSave, onDe
 
 // ---------- One unit card (all copies of the unit share it) ----------
 
-function ruleLabel(r: InPlay) {
-  const values = [...new Set(r.from.map((f) => f.value).filter(Boolean))];
-  return values.length ? `${r.name} (${values.join(' / ')})` : r.name;
-}
-
-function UnitCard({ unit, entity, ents, index, open, edit, onChange }: {
-  unit: ArmyUnit; entity?: Entity; ents: Map<string, Entity>; index: EditionIndex; open: (n: string) => void; edit: boolean;
-  onChange: (u: ArmyUnit | null) => void;
+function UnitCard({ unit, entity, look, index, open, edit, fold, onChange }: {
+  unit: ArmyUnit; entity?: Entity; look: GearLookup; index: EditionIndex; open: (n: string) => void; edit: boolean;
+  fold: { n: number; folded: boolean }; onChange: (u: ArmyUnit | null) => void;
 }) {
-  const [rules, setRules] = useState<InPlay[]>();
-  const gear = unit.copies.flatMap((c) => c.gear);
-  const refs = useMemo(() => {
-    const r = new Set<TrayRef>();
-    if (unit.entityId) r.add(`e:${unit.entityId}`);
-    gear.forEach((g) => { if (g.kind === 'weapon' && g.entityId) r.add(`e:${g.entityId}`); if (g.kind === 'rule' && g.ruleId) r.add(`r:${g.ruleId}`); });
-    return [...r];
-  }, [unit]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [model, setModel] = useState<UnitCardModel>();
+  const [folded, setFolded] = useState(false);
+  useEffect(() => { if (fold.n) setFolded(fold.folded); }, [fold]);
+  // Rebuilt whenever the unit, its match or any wargear changes.
+  const key = JSON.stringify([unit.entityId, unit.listName, unit.copies.map((c) => [c.models, c.gear])]);
   useEffect(() => {
     let live = true;
-    if (!refs.length) { setRules([]); return; }
-    buildCombo(db, refs, index.mentions).then((c) => { if (live) setRules(c.rules); });
+    buildUnitCard(db, unit, entity, look).then((m) => { if (live) setModel(m); });
     return () => { live = false; };
-  }, [refs.join(), index]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [key, entity, look]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const name = entity?.name ?? unit.listName;
-  const profiles = entity ? (entity.profiles?.length ? entity.profiles.map((p) => ({ label: p.names.join(' / '), stats: p.stats })) : [{ label: '', stats: entity.stats }]) : [];
-  const standard = (entity?.wargearIds ?? []).map((id) => ({ id, name: ents.get(id)?.name ?? id.split('#').pop()!.replace(/-/g, ' ') }));
   const unsure = !entity || (unit.matchScore ?? 0) < SURE;
   const count = unit.copies.length;
   const pts = unitPoints(unit);
   const setCopy = (id: string, fn: (c: ArmyCopy) => ArmyCopy | null) =>
     onChange({ ...unit, copies: unit.copies.flatMap((c) => { if (c.id !== id) return [c]; const n = fn(c); return n ? [n] : []; }) });
+  const gearEmpty = model?.taken.every((t) => t.items.length === 0);
 
   return (
     <article className="card ucard">
       <div className="uhead">
-        <button className="uname" disabled={!entity} onClick={() => entity && open('e:' + entity.id)}>{name}{entity && <span className="rb-go">›</span>}</button>
+        <div className="uline">
+          <button className="uname" disabled={!entity} onClick={() => entity && open('e:' + entity.id)}>{name}{entity && <span className="rb-go">›</span>}</button>
+          <button className="small-btn fold" aria-expanded={!folded} onClick={() => setFolded(!folded)}>{folded ? 'Show' : 'Hide'}</button>
+        </div>
         <div className="badges">
           {count > 1 && <span className="badge">×{count}</span>}
           <span className="badge">{unitModels(unit)} model{unitModels(unit) === 1 ? '' : 's'}</span>
@@ -184,49 +181,63 @@ function UnitCard({ unit, entity, ents, index, open, edit, onChange }: {
         {entity && name.toLowerCase() !== unit.listName.toLowerCase() && <div className="muted small">Listed as “{unit.listName}”</div>}
       </div>
 
-      {profiles.filter((p) => p.stats.length).slice(0, 3).map((p, i) => (
-        <div key={i}>
-          {p.label && profiles.length > 1 && <div className="muted small">{p.label}</div>}
-          <div className="statline">{p.stats.map((s) => <div key={s.label}><span>{s.label}</span><b>{statText(s.value)}</b></div>)}</div>
-        </div>
-      ))}
-
-      {rules === undefined ? <div className="muted small">Loading rules…</div> : rules.length > 0 && (
-        <div className="chips">
-          {rules.map((r) => (
-            <button key={r.ruleId} className="chip" disabled={!r.rule} onClick={() => open('r:' + r.ruleId)}>{ruleLabel(r)}</button>
+      {!model ? <div className="muted small">Loading…</div> : (
+        <>
+          {model.lines.filter((l) => l.stats.length).map((l) => (
+            <div key={l.index}>
+              {(l.label || l.tag) && <div className="muted small">{l.label}{l.tag ? ` · ${l.tag}` : ''}</div>}
+              <StatLine stats={l.stats} />
+            </div>
           ))}
-        </div>
+          {model.notes.map((n) => <div className="note" key={n}>{n}</div>)}
+
+          {!folded && (
+            <>
+              <RuleSection label="Type" items={model.types} index={index} open={open} />
+              <RuleSection label="Special rules" items={model.rules} index={index} open={open} />
+              <RuleSection label="Traits" items={model.traits} index={index} open={open} />
+              {model.wargear.length > 0 && (
+                <div className="dgroup">
+                  <div className="dlabel">Wargear</div>
+                  {model.wargear.map((g) => <GearDrop key={g.key} g={g} index={index} open={open} />)}
+                </div>
+              )}
+
+              <div className="dgroup taken">
+                <div className="dlabel">Options taken in this list</div>
+                {gearEmpty && <p className="muted small">Nothing extra is listed.</p>}
+                {model.taken.map((t) => t.items.length > 0 && (
+                  <div className="copy" key={t.copyId}>
+                    {count > 1 && <div className="copy-h">{t.label}</div>}
+                    {t.items.map((g) => <GearDrop key={g.key} g={g} index={index} open={open} />)}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </>
       )}
 
-      {(gear.length > 0 || standard.length > 0 || count > 1) && (
-        <details className="dd" open={edit || undefined}>
-          <summary>Loadout{count > 1 ? ` · ${count} copies` : ''}</summary>
+      {edit && (
+        <details className="dd" open>
+          <summary>Edit loadout{count > 1 ? ` · ${count} copies` : ''}</summary>
           <div className="ddbody">
             {unit.copies.map((c, i) => (
               <div className="copy" key={c.id}>
                 <div className="copy-h">{count > 1 ? `Copy ${i + 1} · ` : ''}{c.models}{c.modelsGuessed ? '?' : ''} model{c.models === 1 ? '' : 's'}{c.pts ? ` · ${c.pts} pts` : ''}</div>
-                <GearChips gear={c.gear} open={open} edit={edit} standardIds={entity?.wargearIds ?? []}
-                  onRemove={(gi) => setCopy(c.id, (x) => ({ ...x, gear: x.gear.filter((_, k) => k !== gi) }))} />
-                {edit && (
-                  <>
-                    <div className="row-btns">
-                      <button className="small-btn" onClick={() => setCopy(c.id, (x) => ({ ...x, models: Math.max(1, x.models - 1), modelsGuessed: false }))}>− model</button>
-                      <button className="small-btn" onClick={() => setCopy(c.id, (x) => ({ ...x, models: x.models + 1, modelsGuessed: false }))}>+ model</button>
-                      {count > 1 && <button className="small-btn danger" onClick={() => setCopy(c.id, () => null)}>Remove copy</button>}
-                    </div>
-                    <Picker index={index} kinds={['weapon', 'wargear', 'other']} placeholder="Add wargear…"
-                      onPick={(h) => setCopy(c.id, (x) => ({ ...x, gear: [...x.gear, { name: h.name, kind: 'weapon', entityId: h.id, added: true }] }))} />
-                  </>
-                )}
+                <GearChips gear={c.gear} index={index}
+                  onRemove={(gi) => setCopy(c.id, (x) => ({ ...x, gear: x.gear.filter((_, k) => k !== gi) }))}
+                  onMatch={(gi, h) => setCopy(c.id, (x) => ({ ...x, gear: x.gear.map((g, k) => (k === gi ? { ...g, kind: 'weapon', entityId: h.id, ruleId: undefined } : g)) }))} />
+                <div className="row-btns">
+                  <button className="small-btn" onClick={() => setCopy(c.id, (x) => ({ ...x, models: Math.max(1, x.models - 1), modelsGuessed: false }))}>− model</button>
+                  <button className="small-btn" onClick={() => setCopy(c.id, (x) => ({ ...x, models: x.models + 1, modelsGuessed: false }))}>+ model</button>
+                  {count > 1 && <button className="small-btn danger" onClick={() => setCopy(c.id, () => null)}>Remove copy</button>}
+                </div>
+                <Picker index={index} kinds={['weapon', 'wargear', 'other']} placeholder="Add wargear…"
+                  onPick={(h) => setCopy(c.id, (x) => ({ ...x, gear: [...x.gear, { name: h.name, kind: 'weapon', entityId: h.id, added: true }] }))} />
               </div>
             ))}
-            {standard.length > 0 && (
-              <div className="muted small">Standard wargear: {standard.map((w, i) => (
-                <span key={w.id}>{i > 0 && ', '}<button className="link inline" onClick={() => open('e:' + w.id)}>{w.name}</button></span>
-              ))}</div>
-            )}
-            {edit && <button className="small-btn" onClick={() => onChange({ ...unit, copies: [...unit.copies, { id: uid(), models: unit.copies[0]?.models ?? 1, gear: [], pts: unit.copies[0]?.pts }] })}>+ Add another copy</button>}
+            <button className="small-btn" onClick={() => onChange({ ...unit, copies: [...unit.copies, { id: uid(), models: unit.copies[0]?.models ?? 1, gear: [], pts: unit.copies[0]?.pts }] })}>+ Add another copy</button>
           </div>
         </details>
       )}
@@ -252,24 +263,30 @@ function UnitCard({ unit, entity, ents, index, open, edit, onChange }: {
   );
 }
 
-function GearChips({ gear, open, edit, standardIds, onRemove }: {
-  gear: ArmyGear[]; open: (n: string) => void; edit: boolean; standardIds: string[]; onRemove: (i: number) => void;
+// Edit mode: what the list says was taken. Remove an item, or point it at the right library item.
+function GearChips({ gear, index, onRemove, onMatch }: {
+  gear: ArmyGear[]; index: EditionIndex; onRemove: (i: number) => void; onMatch: (i: number, h: { id: string; name: string }) => void;
 }) {
+  const [matching, setMatching] = useState<number>();
   if (!gear.length) return <div className="muted small">Nothing extra listed.</div>;
   return (
-    <div className="chips">
-      {gear.map((g, i) => {
-        const extra = g.kind === 'weapon' && g.entityId && !standardIds.includes(g.entityId);
-        const text = `${g.label ? g.label + ': ' : ''}${g.forModel ? g.forModel + ': ' : ''}${g.count && g.count > 1 ? g.count + '× ' : ''}${g.name}`;
-        const go = g.kind === 'weapon' && g.entityId ? () => open('e:' + g.entityId) : g.kind === 'rule' && g.ruleId ? () => open('r:' + g.ruleId) : undefined;
-        return (
-          <span key={i} className={`chip static${extra ? ' extra' : ''}`}>
-            <button className="chip-go" disabled={!go} onClick={go}>{text}{extra ? ' ★' : ''}</button>
-            {edit && <button className="chip-x" aria-label={`Remove ${g.name}`} onClick={() => onRemove(i)}>×</button>}
+    <>
+      <div className="chips">
+        {gear.map((g, i) => (
+          <span key={i} className={`chip static${g.kind === 'text' ? ' extra' : ''}`}>
+            <span className="chip-go">{g.label ? g.label + ': ' : ''}{g.forModel ? g.forModel + ': ' : ''}{g.count && g.count > 1 ? g.count + '× ' : ''}{g.name}{g.kind === 'model' ? ' (model)' : ''}</span>
+            <button className="chip-x" aria-label={`Match ${g.name} to a different library item`} onClick={() => setMatching(matching === i ? undefined : i)}>⇄</button>
+            <button className="chip-x" aria-label={`Remove ${g.name}`} onClick={() => onRemove(i)}>×</button>
           </span>
-        );
-      })}
-    </div>
+        ))}
+      </div>
+      {matching !== undefined && gear[matching] && (
+        <div>
+          <div className="muted small">Which library item is “{gear[matching].name}”?</div>
+          <Picker index={index} kinds={['weapon', 'wargear', 'other']} placeholder="Search wargear…" onPick={(h) => { onMatch(matching, h); setMatching(undefined); }} />
+        </div>
+      )}
+    </>
   );
 }
 

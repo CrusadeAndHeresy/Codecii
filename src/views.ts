@@ -1,6 +1,6 @@
 // Unit/wargear pages and the "rules together" view.
 import type { LibraryDB } from './db';
-import type { Entity, Rule, Source, Stat } from './model';
+import type { Entity, EntityProfile, Rule, RuleRef, Source, Stat } from './model';
 import { ids, slug } from './normalize';
 import { resolveById, type MentionIndex, type ResolvedRule } from './store';
 
@@ -14,7 +14,7 @@ export interface InPlay {
 }
 
 // Prefer the carrier's faction version of a rule when there is one.
-async function pickVersion(db: LibraryDB, ruleId: string, faction?: string) {
+export async function pickVersion(db: LibraryDB, ruleId: string, faction?: string) {
   if (faction) {
     const fv = await db.rules.get(`${ruleId}~${slug(faction)}`);
     if (fv) return { rule: fv, replaced: await db.rules.get(ruleId) };
@@ -22,7 +22,7 @@ async function pickVersion(db: LibraryDB, ruleId: string, faction?: string) {
   return { rule: await db.rules.get(ruleId) };
 }
 
-async function getEntity(db: LibraryDB, id: string, faction?: string) {
+export async function getEntity(db: LibraryDB, id: string, faction?: string) {
   if (faction) {
     const f = await db.entities.get(`${id}~${slug(faction)}`);
     if (f) return f;
@@ -30,7 +30,7 @@ async function getEntity(db: LibraryDB, id: string, faction?: string) {
   return db.entities.get(id);
 }
 
-const nameFromId = (id: string) => id.split(/[:#]/).pop()!.split('~')[0].replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+export const nameFromId = (id: string) => id.split(/[:#]/).pop()!.split('~')[0].replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
 export interface WargearView { id: string; name: string; entity?: Entity; rules: InPlay[] }
 
@@ -71,12 +71,42 @@ async function sourcesMap(db: LibraryDB) {
   return new Map((await db.sources.toArray()).map((s) => [s.id, s]));
 }
 
+// "Infantry (Command, Antigrav)" is the type Infantry with the sub-types Command and Antigrav.
+export function splitUnitType(unitType?: string, subTypes: string[] = []) {
+  const m = unitType ? /^([^(]+?)\s*\(([^)]*)\)\s*$/.exec(unitType) : null;
+  if (!m) return { unitType, subTypes };
+  const extra = m[2].split(',').map((x) => x.trim()).filter(Boolean);
+  return { unitType: m[1].trim(), subTypes: [...extra, ...subTypes.filter((x) => !extra.some((y) => y.toLowerCase() === x.toLowerCase()))] };
+}
+export function typeLabels(unitType?: string, subTypes: string[] = []) {
+  const t = splitUnitType(unitType, subTypes);
+  return [...(t.unitType ? [t.unitType] : []), ...t.subTypes];
+}
 // Rule ids for a unit type and its sub-types, in the same order as their labels.
-function typeRuleIds(editionId: string, unitType?: string, subTypes: string[] = []) {
+export function typeRuleIds(editionId: string, unitType?: string, subTypes: string[] = []) {
+  const t = splitUnitType(unitType, subTypes);
   return [
-    ...(unitType ? [ids.rule(editionId, unitType)] : []),
-    ...subTypes.map((n) => ids.rule(editionId, /sub-type$/i.test(n) ? n : `${n} Sub-Type`)),
+    ...(t.unitType ? [ids.rule(editionId, t.unitType)] : []),
+    ...t.subTypes.map((n) => ids.rule(editionId, /sub-type$/i.test(n) ? n : `${n} Sub-Type`)),
   ];
+}
+
+// What one profile line of a unit really has: its own entries plus the unit-level ones that no profile line claims
+// (a unit's wargear, shared special rules and traits are often printed once for the whole unit).
+export function mergedLine(entity: Entity, p?: EntityProfile) {
+  const key = (r: RuleRef) => `${r.ruleId}|${r.value ?? ''}`;
+  const dedupe = (xs: RuleRef[]) => [...new Map(xs.map((r) => [key(r), r])).values()];
+  if (!p) return { rules: entity.rules, traits: entity.traits ?? [], wargearIds: entity.wargearIds, unitType: entity.unitType, subTypes: entity.subTypes };
+  const ps = entity.profiles ?? [];
+  const inProfiles = new Set(ps.flatMap((x) => x.rules.map(key)));
+  const wargearInProfiles = new Set(ps.flatMap((x) => x.wargearIds));
+  return {
+    rules: dedupe([...entity.rules.filter((r) => !inProfiles.has(key(r))), ...p.rules]),
+    traits: dedupe([...(entity.traits ?? []), ...(p.traits ?? [])]),
+    wargearIds: [...new Set([...entity.wargearIds.filter((id) => !wargearInProfiles.has(id)), ...p.wargearIds])],
+    unitType: p.unitType ?? entity.unitType,
+    subTypes: [...new Set([...entity.subTypes, ...p.subTypes])],
+  };
 }
 
 async function expandRule(db: LibraryDB, owner: Entity, sources: Map<string, Source>, ruleId: string, value?: string): Promise<InPlay> {
@@ -98,21 +128,24 @@ export async function loadEntityView(db: LibraryDB, entityId: string): Promise<E
     return { id: e?.id ?? id, name: e?.name ?? nameFromId(id), entity: e, rules };
   }));
   const typesOf = async (unitType: string | undefined, subTypes: string[]) => {
-    const labels = [...(unitType ? [unitType] : []), ...subTypes];
+    const labels = typeLabels(unitType, subTypes);
     const found = await Promise.all(typeRuleIds(entity.editionId, unitType, subTypes).map((id) => expandRule(db, entity, sources, id)));
     return found.map((x, i) => ({ ...x, name: x.rule?.name ?? labels[i] ?? x.name }));
   };
   const traitsOf = (refs: { ruleId: string; value?: string }[]) =>
     Promise.all(refs.map((r) => expandRule(db, entity, sources, r.ruleId, r.value)));
 
-  const profiles: ProfileView[] = await Promise.all((entity.profiles ?? []).map(async (p) => ({
-    names: p.names,
-    stats: p.stats,
-    rules: await Promise.all(p.rules.map((r) => expandRule(db, entity, sources, r.ruleId, r.value))),
-    typeRules: await typesOf(p.unitType, p.subTypes),
-    traits: await traitsOf(p.traits ?? []),
-    wargear: await wargearOf(p.wargearIds),
-  })));
+  const profiles: ProfileView[] = await Promise.all((entity.profiles ?? []).map(async (p) => {
+    const line = mergedLine(entity, p);
+    return {
+      names: p.names,
+      stats: p.stats,
+      rules: await Promise.all(line.rules.map((r) => expandRule(db, entity, sources, r.ruleId, r.value))),
+      typeRules: await typesOf(line.unitType, line.subTypes),
+      traits: await traitsOf(line.traits),
+      wargear: await wargearOf(line.wargearIds),
+    };
+  }));
 
   const plain = entity.id.split('~')[0];
   const usedBy = (await db.entities.where('wargearIds').anyOf([entity.id, plain]).toArray()).filter((u) => u.id !== entity.id);
