@@ -3,7 +3,7 @@
 
     python3 branding/make-icons.py
 
-Writes public/: icon-192.png, icon-512.png (rounded), icon-maskable-512.png (full bleed,
+Writes public/: icon-192.png, icon-512.png (full bleed), icon-maskable-512.png (full bleed,
 art inside the safe zone), apple-touch-icon.png (180, opaque), favicon.png (48).
 The white background is removed by flood-filling from the edges, so white glows that sit
 inside the artwork's outline are kept.
@@ -15,8 +15,7 @@ from scipy import ndimage as ndi
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, '..', 'public')
-BG = (17, 19, 23)        # #111317, same as the app's theme colour
-BG_GLOW = (30, 33, 40)   # slightly lighter centre so the dark outlines read
+BG = (255, 255, 253)     # #fffffd, the off-white Creatio's icon sits on
 
 
 def cutout(path):
@@ -28,7 +27,7 @@ def cutout(path):
     bg = np.isin(lab, [v for v in np.unique(edge) if v])
     alpha = (~bg).astype(np.float32)
     alpha = ndi.binary_opening(alpha > 0.5, iterations=1).astype(np.float32)   # drop stray specks
-    alpha = ndi.binary_erosion(alpha > 0.5, iterations=4).astype(np.float32)   # trim the JPEG halo outside the black outline
+    alpha = ndi.binary_erosion(alpha > 0.5, iterations=1).astype(np.float32)   # light halo is invisible on the off-white tile
     alpha = ndi.gaussian_filter(alpha, 0.9)                                    # soft edge
     rgba = np.dstack([np.asarray(im), (alpha * 255).astype(np.uint8)])
     art = Image.fromarray(rgba, 'RGBA')
@@ -38,8 +37,6 @@ def cutout(path):
 def tile(art, size, art_h, rounded):
     s = size * 4                                   # draw large, then shrink for smooth edges
     base = Image.new('RGB', (s, s), BG)
-    glow = Image.radial_gradient('L').resize((s, s))   # 0 centre -> 255 edge
-    base = Image.composite(base, Image.new('RGB', (s, s), BG_GLOW), glow.point(lambda v: min(255, v * 2)))
     h = int(s * art_h)
     w = int(art.width * h / art.height)
     if w > s * 0.94:                                # never let the width crowd the edges
@@ -57,8 +54,8 @@ def tile(art, size, art_h, rounded):
 if __name__ == '__main__':
     art = cutout(os.path.join(HERE, 'logo-source.jpg'))
     jobs = [
-        ('icon-192.png', 192, 0.88, True),
-        ('icon-512.png', 512, 0.88, True),
+        ('icon-192.png', 192, 0.88, False),     # full-bleed squares, like Creatio's icons
+        ('icon-512.png', 512, 0.88, False),
         ('icon-maskable-512.png', 512, 0.72, False),
         ('apple-touch-icon.png', 180, 0.88, False),
         ('favicon.png', 48, 0.94, True),
