@@ -245,3 +245,7 @@ details.dd.gear-dd > summary { font-weight: 600; }
 .nested .nested { background: rgba(216, 178, 90, .05); }
 .ucard .ruletext { font-size: 1rem; margin: 6px 0; }
 .taken .copy-h { color: var(--muted); }
+
+.army-li { display: flex; align-items: stretch; gap: 8px; }
+.army-li .row { flex: 1; min-width: 0; }
+.army-del { min-width: 72px; min-height: 44px; color: #a33; }
