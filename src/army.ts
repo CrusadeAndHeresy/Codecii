@@ -3,10 +3,11 @@
 import type { Entity, Rule } from './model';
 import { normName } from './normalize';
 
-export type GearKind = 'weapon' | 'rule' | 'text';
+export type GearKind = 'weapon' | 'rule' | 'text' | 'model';
 export interface ArmyGear {
   name: string;           // as printed in the list (counts and labels removed)
-  kind: GearKind;         // weapon = a weapon/wargear entry in the library; rule = a rule in the library; text = not found
+  kind: GearKind;         // weapon = a weapon/wargear entry in the library; rule = a rule in the library; text = not found;
+                          // model = the list names one of the unit's own models ("Militia Mastiff", "Praetor with Jump Pack")
   entityId?: string;
   ruleId?: string;
   count?: number;
@@ -81,6 +82,8 @@ const STOP = new Set(['the', 'of', 'and', 'a', 'an', 'legion', 'legiones', 'asta
 const stem = (w: string) => (w.endsWith('ies') ? w.slice(0, -3) + 'y' : w.length > 3 && w.endsWith('s') && !w.endsWith('ss') ? w.slice(0, -1) : w);
 export const tokens = (s: string) => normName(s).split(' ').filter((w) => w && !STOP.has(w)).map(stem);
 export const nameKey = (s: string) => tokens(s).join(' ');
+// Same key with the spaces gone, so "Meltabombs" and "Melta bombs" are one thing.
+export const squashKey = (s: string) => tokens(s).join('');
 
 export function nameScore(a: string, b: string): number {
   if (normName(a) === normName(b)) return 1;
@@ -118,22 +121,30 @@ const LABELS = /^(prime advantage|prime slot|rite of war|warlord trait|enhanceme
 export function makeLookup(entities: Entity[], rules: Rule[]): GearLookup {
   const gearEntities = entities.filter((e) => e.type !== 'unit');
   const gearBy = new Map<string, Entity>();
-  gearEntities.forEach((e) => { const k = nameKey(e.name); if (k && !gearBy.has(k)) gearBy.set(k, e); });
+  const gearSquash = new Map<string, Entity>();
+  gearEntities.forEach((e) => {
+    const k = nameKey(e.name); if (k && !gearBy.has(k)) gearBy.set(k, e);
+    const q = squashKey(e.name); if (q && !gearSquash.has(q)) gearSquash.set(q, e);
+  });
   const ruleBy = new Map<string, Rule>();
+  const ruleSquash = new Map<string, Rule>();
   rules.forEach((r) => {
-    [r.name, ...(r.aliases ?? [])].forEach((n) => { const k = nameKey(n); if (k && !ruleBy.has(k)) ruleBy.set(k, r); });
+    [r.name, ...(r.aliases ?? [])].forEach((n) => {
+      const k = nameKey(n); if (k && !ruleBy.has(k)) ruleBy.set(k, r);
+      const q = squashKey(n); if (q && !ruleSquash.has(q)) ruleSquash.set(q, r);
+    });
   });
   const stripMounts = (item: string) => tokens(item).filter((t) => !MOUNT_WORDS.has(t)).join(' ');
   return {
     gear: (item) => {
       const k = nameKey(item);
-      const hit = gearBy.get(k) ?? gearBy.get(stripMounts(item));
+      const hit = gearBy.get(k) ?? gearBy.get(stripMounts(item)) ?? gearSquash.get(squashKey(item));
       if (hit) return hit;
       let best: Entity | undefined, bs = 0;
       for (const e of gearEntities) { const s = nameScore(item, e.name); if (s > bs) { bs = s; best = e; } }
       return bs >= 0.8 ? best : undefined;
     },
-    rule: (item) => ruleBy.get(nameKey(item)),
+    rule: (item) => ruleBy.get(nameKey(item)) ?? ruleSquash.get(squashKey(item)),
   };
 }
 
@@ -162,6 +173,9 @@ export function parseGear(details: string[], unitName: string, look: GearLookup,
       if (im) { label = pretty(im[1]); item = item.trim().slice(im[0].length); }
       item = item.replace(/\(\s*\+?\s*\d+\s*(?:pts?|points?)\s*\)|\+\s*\d+\s*(?:pts?|points?)/gi, '').replace(/\s+/g, ' ').trim();
       if (!item || !/[A-Za-z]/.test(item)) continue;
+      let model = forModel;
+      const pm = !label && !forModel ? /^([^:]{2,40}):\s*(.+)$/.exec(item) : null;   // "5 Scouts, Scout Sergeant: melta bombs"
+      if (pm) { model = pm[1].trim(); item = pm[2].trim(); }
       let count: number | undefined;
       let m: RegExpExecArray | null;
       if ((m = /^(\d+)\s*[×xX]?\s+(.+)$/.exec(item))) { count = +m[1]; item = m[2]; }
@@ -170,14 +184,20 @@ export function parseGear(details: string[], unitName: string, look: GearLookup,
       item = item.trim();
       // "3 Aquilon Terminators" is who is in the unit, not wargear
       if (!label && tokens(item).some((t) => unitTokens.has(t)) && count !== undefined && !look.gear(item)) continue;
-      if (!label && modelNames.some((n) => nameScore(item, n) >= 0.8) && !look.gear(item)) continue; // a model of this unit
+      if (!label && modelNames.some((n) => nameScore(item, n) >= 0.8) && !look.gear(item)) {
+        out.push({ name: item, kind: 'model', count, forModel: model }); // a model of this unit: not wargear, but it says which profile line applies
+        continue;
+      }
       const g = look.gear(item);
       // "Legion Tactical Sergeant" is a model of Tactical Squad, not wargear: every word is the unit's or a model's own
-      if (!g && !look.rule(item) && !label && tokens(item).length && tokens(item).every((t) => known.has(t))) continue;
-      if (g) { out.push({ name: item, kind: 'weapon', entityId: g.id, count, label, forModel }); continue; }
+      if (!g && !look.rule(item) && !label && tokens(item).length && tokens(item).every((t) => known.has(t))) {
+        out.push({ name: item, kind: 'model', count, forModel: model }); // "Jump Pack" on "Praetor with Jump Pack": says which profile line applies
+        continue;
+      }
+      if (g) { out.push({ name: item, kind: 'weapon', entityId: g.id, count, label, forModel: model }); continue; }
       const r = look.rule(item);
-      if (r) { out.push({ name: item, kind: 'rule', ruleId: r.id, count, label, forModel }); continue; }
-      out.push({ name: item, kind: 'text', count, label, forModel });
+      if (r) { out.push({ name: item, kind: 'rule', ruleId: r.id, count, label, forModel: model }); continue; }
+      out.push({ name: item, kind: 'text', count, label, forModel: model });
     }
   }
   return out;

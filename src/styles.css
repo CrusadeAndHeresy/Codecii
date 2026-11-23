@@ -223,3 +223,22 @@ button.link.inline { min-height: 0; padding: 4px 0; }
 .ucard .chip.static { padding: 0 2px 0 10px; }
 .ucard .chip-go { min-height: 34px; padding: 4px 8px 4px 0; font-size: .85rem; }
 .ucard .chip-x { min-height: 34px; }
+
+/* Army card: sections of dropdowns that open in place */
+.uline { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.small-btn.fold { min-height: 36px; padding: 2px 12px; color: var(--muted); }
+.ucard .dgroup { margin: 14px 0 6px; }
+.ucard .dlabel { font-weight: 700; color: var(--gold); font-size: 12px; margin-bottom: 6px; }
+.tag { font-size: .75rem; font-weight: 500; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 1px 8px; }
+.tag.warn { color: #f0b429; border-color: #f0b429; }
+details.dd.gear-dd > summary { font-weight: 600; }
+.gline + .gline { margin-top: 8px; }
+.gear-dd .ddbody > .dgroup { margin-top: 10px; }
+.subrules { margin-top: 10px; }
+.subrules .chip { min-height: 36px; padding: 4px 12px; }
+.chip.on { border-color: var(--gold); color: var(--gold); }
+.nested { margin: 6px 0 10px; padding: 8px 10px; border-left: 3px solid var(--gold); background: rgba(216, 178, 90, .07); border-radius: 0 8px 8px 0; }
+.nested-h { display: flex; justify-content: space-between; align-items: center; font-weight: 700; }
+.nested .nested { background: rgba(216, 178, 90, .05); }
+.ucard .ruletext { font-size: 1rem; margin: 6px 0; }
+.taken .copy-h { color: var(--muted); }

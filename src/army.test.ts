@@ -86,10 +86,10 @@ Rhino [35pts]`;
     const g = groupByRole(army.units, new Map(ents.map((e) => [e.id, e])));
     expect(g.map((x) => x.role)).toEqual(['High Command', 'Troops', 'Armour', 'Transport']);
 
-    // weapons in the list are linked to library weapons; the models are not treated as wargear
+    // weapons in the list are linked to library weapons; the unit's own models are kept apart from wargear (kind 'model')
     const pred = army.units[2].copies[0].gear;
     expect(pred.find((x) => /predator cannon/i.test(x.name))?.entityId).toBeTruthy();
-    expect(tac.copies[0].gear.some((x) => /legionary/i.test(x.name))).toBe(false);
+    expect(tac.copies[0].gear.some((x) => x.kind !== 'model' && /legionary/i.test(x.name))).toBe(false);
 
     // the rules on a card come from the unit and its wargear, and open on the rule card
     const combo = await buildCombo(db, [`e:${tac.entityId!}`], index.mentions);
