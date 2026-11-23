@@ -193,3 +193,33 @@ button.link.inline { min-height: 0; padding: 4px 0; }
 .auth-go { min-height: 48px; border-radius: 10px; border: 0; font-weight: 700; background: var(--gold, var(--text)); color: var(--bg); cursor: pointer; }
 .auth-go:disabled { opacity: .5; cursor: default; }
 .auth-error { color: var(--err-line); font-size: .9rem; }
+
+/* Army tab: one card per unit, grouped by battlefield role */
+.paste { width: 100%; min-height: 120px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font: inherit; resize: vertical; }
+.file-btn.disabled { opacity: .5; pointer-events: none; }
+.rolehead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+.rolehead span { font-weight: 500; text-transform: none; letter-spacing: 0; }
+.ucard { padding: 12px 14px; margin: 10px 0; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+.uhead .badges { margin: 4px 0 6px; }
+.uname { background: none; border: 0; padding: 0; min-height: 40px; color: var(--text); font-size: 1.15rem; font-weight: 700; text-align: left; display: flex; align-items: center; gap: 6px; }
+.uname:disabled { color: var(--text); }
+.uhead .badges { align-items: flex-start; }
+.badge.warn { color: #f0b429; background: transparent; border-color: #f0b429; border-radius: 99px; padding: 3px 9px; margin: 0; font-size: .8rem; }
+.ucard .chips { margin: 6px 0 8px; }
+.copy { padding: 8px 0; border-top: 1px solid var(--line); }
+.copy:first-child { border-top: 0; padding-top: 0; }
+.copy-h { font-weight: 600; font-size: .9rem; margin-bottom: 4px; }
+.chip.extra { border-color: var(--gold); }
+.chip-go { background: none; border: 0; padding: 8px 8px 8px 0; min-height: 40px; color: inherit; font: inherit; font-weight: 600; text-align: left; }
+.chip-go:disabled { opacity: 1; }
+.chip-x { background: none; border: 0; min-width: 36px; min-height: 40px; font-size: 1.2rem; color: var(--muted); }
+.picker { margin: 8px 0; }
+.picker input { width: 100%; min-height: 44px; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; }
+.ucard label.small { display: flex; align-items: center; gap: 8px; margin: 10px 0; }
+.ucard select { min-height: 40px; }
+
+/* compact rule chips on army cards: many rules, small screen */
+.ucard .chips .chip { min-height: 34px; padding: 4px 10px; font-size: .85rem; }
+.ucard .chip.static { padding: 0 2px 0 10px; }
+.ucard .chip-go { min-height: 34px; padding: 4px 8px 4px 0; font-size: .85rem; }
+.ucard .chip-x { min-height: 34px; }

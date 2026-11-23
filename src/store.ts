@@ -246,7 +246,7 @@ export async function removeSource(db: LibraryDB, sourceId: string) {
 
 // Removes a game: every edition, book, rule, printing, FAQ change and unit that belongs to it.
 export async function removeSystem(db: LibraryDB, systemId: string) {
-  await db.transaction('rw', [db.systems, db.editions, db.sources, db.rules, db.printings, db.amendments, db.entities, db.images, db.editLog], async () => {
+  await db.transaction('rw', [db.systems, db.editions, db.sources, db.rules, db.printings, db.amendments, db.entities, db.images, db.editLog, db.armies], async () => {
     for (const ed of await db.editions.where('systemId').equals(systemId).toArray()) {
       for (const src of await db.sources.where('editionId').equals(ed.id).toArray()) {
         await db.printings.where('sourceId').equals(src.id).delete();
@@ -259,6 +259,7 @@ export async function removeSystem(db: LibraryDB, systemId: string) {
       }
       await db.rules.where('editionId').equals(ed.id).delete();
       await db.entities.where('editionId').equals(ed.id).delete();
+      await db.armies.where('editionId').equals(ed.id).delete();
       await db.sources.where('editionId').equals(ed.id).delete();
       await db.editions.delete(ed.id);
     }
@@ -269,7 +270,7 @@ export async function removeSystem(db: LibraryDB, systemId: string) {
 
 // Empties the library on this device.
 export async function eraseAll(db: LibraryDB) {
-  await db.transaction('rw', [db.systems, db.editions, db.sources, db.rules, db.printings, db.amendments, db.entities, db.images, db.editLog, db.meta], async () => {
-    for (const t of [db.systems, db.editions, db.sources, db.rules, db.printings, db.amendments, db.entities, db.images, db.editLog, db.meta]) await t.clear();
+  await db.transaction('rw', [db.systems, db.editions, db.sources, db.rules, db.printings, db.amendments, db.entities, db.images, db.editLog, db.meta, db.armies], async () => {
+    for (const t of [db.systems, db.editions, db.sources, db.rules, db.printings, db.amendments, db.entities, db.images, db.editLog, db.meta, db.armies]) await t.clear();
   });
 }

@@ -85,6 +85,8 @@ const IMAGE_KINDS: ImageKind[] = ['board-layout', 'list-design'];
 const IMAGE_TYPES = ['image/png', 'image/jpeg'];
 const MAX_IMAGE_BYTES = 1_500_000; // decoded size per picture; keeps one book file phone-sized
 
+// A stat the book leaves blank (no invulnerable save) is a dash, never the word "null".
+export const statText = (v: unknown) => (v === null || v === undefined || v === '' || v === 'null' ? '–' : String(v));
 const str = (v: unknown) => typeof v === 'string' && v.trim().length > 0;
 const pageStr = (p: unknown) => (p === undefined || p === null || p === '' ? undefined : String(p));
 
@@ -236,8 +238,8 @@ export function planImport(raw: unknown, now = Date.now()): ImportPlan {
     });
     const uniq = (xs: { ruleId: string; value?: string }[]) => [...new Map(xs.map((r) => [r.ruleId + '|' + (r.value ?? ''), r])).values()];
     const toStats = (st: ImportEntity['stats']) => Array.isArray(st)
-      ? st.map((x) => ({ label: String(x.label), value: String(x.value) }))
-      : Object.entries(st ?? {}).map(([label, value]) => ({ label, value: String(value) }));
+      ? st.map((x) => ({ label: String(x.label), value: statText(x.value) }))
+      : Object.entries(st ?? {}).map(([label, value]) => ({ label, value: statText(value) }));
     // Type links to the rule of the same name; sub-types to "<name> Sub-Type" (so Heavy Sub-Type never collides with Heavy (X)).
     const typeIdsOf = (unitType?: string, subTypes: string[] = []) => [
       ...(unitType ? [ruleIdFor(unitType)] : []),

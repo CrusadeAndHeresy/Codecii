@@ -1,4 +1,5 @@
 import Dexie, { type Table } from 'dexie';
+import type { Army } from './army';
 import type { Amendment, EditLogEntry, Edition, Entity, GameSystem, LibImage, Printing, Rule, Source } from './model';
 
 export class LibraryDB extends Dexie {
@@ -11,6 +12,7 @@ export class LibraryDB extends Dexie {
   entities!: Table<Entity, string>;
   editLog!: Table<EditLogEntry, number>;
   images!: Table<LibImage, string>;
+  armies!: Table<Army, string>;
   meta!: Table<{ key: string; value: unknown }, string>;
 
   constructor(name = 'rules-library') {
@@ -35,6 +37,9 @@ export class LibraryDB extends Dexie {
     });
     this.version(3).stores({
       images: 'id, sourceId',
+    });
+    this.version(4).stores({
+      armies: 'id, editionId, updatedAt',
     });
   }
 }

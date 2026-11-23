@@ -21,7 +21,16 @@ export default defineConfig(({ mode }) => ({
               { src: 'icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
             ],
           },
-          workbox: { globPatterns: ['**/*.{js,css,html,svg,png}'] },
+          workbox: {
+            globPatterns: ['**/*.{js,css,html,svg,png}'],
+            // The list readers (PDF and screenshot) are big; they are kept after first use, not downloaded with the app.
+            globIgnores: ['vendor/**'],
+            runtimeCaching: [{
+              urlPattern: ({ url }: { url: URL }) => url.pathname.includes('/vendor/'),
+              handler: 'CacheFirst',
+              options: { cacheName: 'readers', cacheableResponse: { statuses: [0, 200] }, expiration: { maxEntries: 40 } },
+            }],
+          },
         }),
   ],
   build: { outDir: mode === 'single' ? 'dist-single' : 'dist' },
