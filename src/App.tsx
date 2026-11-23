@@ -7,6 +7,7 @@ import { applyImport, eraseAll, loadRuleView, preferPrinting, removeSource, remo
 import { buildCombo, loadEntityView, type Combo, type EntityView, type InPlay, type ProfileView, type SwapView, type TrayRef, type WargearView } from './views';
 import type { ReactNode } from 'react';
 import { signOut } from './auth';
+import { getTheme, setTheme, type Theme } from './theme';
 import ArmyPane from './ArmyPane';
 
 type Tab = 'search' | 'browse' | 'army' | 'import' | 'library';
@@ -819,11 +820,26 @@ function LibraryPane({ onChange, version, onErased }: { onChange: () => void; ve
         </section>
       )}
       <p className="muted small">Stored on this device and works offline. Your transcribed rules text is for your own use; it isn't shared.</p>
+      <ThemePicker />
       <section>
         <h3>Account</h3>
         <button className="small-btn" onClick={() => { void signOut(); }}>Sign out</button>
       </section>
     </div>
+  );
+}
+
+function ThemePicker() {
+  const [t, setT] = useState<Theme>(getTheme());
+  return (
+    <section>
+      <h3>Theme</h3>
+      <div className="filters" role="group" aria-label="Theme">
+        {(['auto', 'dark', 'light'] as Theme[]).map((x) => (
+          <button key={x} className={t === x ? 'on' : ''} aria-pressed={t === x} onClick={() => { setTheme(x); setT(x); }}>{x === 'auto' ? 'Auto (phone)' : x[0].toUpperCase() + x.slice(1)}</button>
+        ))}
+      </div>
+    </section>
   );
 }
 
