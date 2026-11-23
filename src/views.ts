@@ -71,24 +71,41 @@ async function sourcesMap(db: LibraryDB) {
   return new Map((await db.sources.toArray()).map((s) => [s.id, s]));
 }
 
-// "Infantry (Command, Antigrav)" is the type Infantry with the sub-types Command and Antigrav.
-export function splitUnitType(unitType?: string, subTypes: string[] = []) {
+// Type and sub-types as the books print them are messy: "Infantry (Command, Antigrav)", a sub-type written "Vehicle (Super-heavy, Transport)",
+// or a sub-type that just repeats the type. One clean list: the type, then each sub-type once.
+export function typeParts(unitType?: string, subTypes: string[] = []): { label: string; isType: boolean }[] {
+  const inner = (s: string) => s.split(',').map((x) => x.trim()).filter(Boolean);
   const m = unitType ? /^([^(]+?)\s*\(([^)]*)\)\s*$/.exec(unitType) : null;
-  if (!m) return { unitType, subTypes };
-  const extra = m[2].split(',').map((x) => x.trim()).filter(Boolean);
-  return { unitType: m[1].trim(), subTypes: [...extra, ...subTypes.filter((x) => !extra.some((y) => y.toLowerCase() === x.toLowerCase()))] };
+  const type = (m ? m[1] : unitType ?? '').trim();
+  const subs: string[] = m ? inner(m[2]) : [];
+  for (const raw of subTypes) {
+    const sm = /^([^(]+?)\s*\(([^)]*)\)\s*$/.exec(raw.trim());
+    if (sm && !/^\d/.test(sm[2].trim())) { if (sm[1].trim().toLowerCase() !== type.toLowerCase()) subs.push(sm[1].trim()); subs.push(...inner(sm[2])); }
+    else subs.push(raw.trim());
+  }
+  const seen = new Set<string>([type.toLowerCase()]);
+  const out = type ? [{ label: type, isType: true }] : [];
+  for (const x of subs) if (x && !seen.has(x.toLowerCase())) { seen.add(x.toLowerCase()); out.push({ label: x, isType: false }); }
+  return out;
 }
-export function typeLabels(unitType?: string, subTypes: string[] = []) {
-  const t = splitUnitType(unitType, subTypes);
-  return [...(t.unitType ? [t.unitType] : []), ...t.subTypes];
+export const typeLabels = (unitType?: string, subTypes: string[] = []) => typeParts(unitType, subTypes).map((p) => p.label);
+// Rule ids a type or sub-type may be stored under, best first.
+export function typeIdCandidates(editionId: string, p: { label: string; isType: boolean }) {
+  const names = p.isType ? [p.label, `${p.label} Type`]
+    : [/sub-type$/i.test(p.label) ? p.label : `${p.label} Sub-Type`, `Fortification - Sub-Type ${p.label}`, p.label];
+  return names.map((n) => ids.rule(editionId, n));
 }
-// Rule ids for a unit type and its sub-types, in the same order as their labels.
+// Rule ids for a unit type and its sub-types, in the same order as their labels (the first candidate of each).
 export function typeRuleIds(editionId: string, unitType?: string, subTypes: string[] = []) {
-  const t = splitUnitType(unitType, subTypes);
-  return [
-    ...(t.unitType ? [ids.rule(editionId, t.unitType)] : []),
-    ...t.subTypes.map((n) => ids.rule(editionId, /sub-type$/i.test(n) ? n : `${n} Sub-Type`)),
-  ];
+  return typeParts(unitType, subTypes).map((p) => typeIdCandidates(editionId, p)[0]);
+}
+// The same, but each id is the one the library actually has when it has any of the candidates.
+export async function resolveTypeIds(db: LibraryDB, editionId: string, unitType?: string, subTypes: string[] = []) {
+  return Promise.all(typeParts(unitType, subTypes).map(async (p) => {
+    const cands = typeIdCandidates(editionId, p);
+    const found = (await db.rules.bulkGet(cands)).findIndex(Boolean);
+    return { id: cands[found >= 0 ? found : 0], label: p.label };
+  }));
 }
 
 // What one profile line of a unit really has: its own entries plus the unit-level ones that no profile line claims
@@ -128,9 +145,9 @@ export async function loadEntityView(db: LibraryDB, entityId: string): Promise<E
     return { id: e?.id ?? id, name: e?.name ?? nameFromId(id), entity: e, rules };
   }));
   const typesOf = async (unitType: string | undefined, subTypes: string[]) => {
-    const labels = typeLabels(unitType, subTypes);
-    const found = await Promise.all(typeRuleIds(entity.editionId, unitType, subTypes).map((id) => expandRule(db, entity, sources, id)));
-    return found.map((x, i) => ({ ...x, name: x.rule?.name ?? labels[i] ?? x.name }));
+    const found = await resolveTypeIds(db, entity.editionId, unitType, subTypes);
+    const items = await Promise.all(found.map((f) => expandRule(db, entity, sources, f.id)));
+    return items.map((x, i) => ({ ...x, name: x.rule?.name ?? found[i].label ?? x.name }));
   };
   const traitsOf = (refs: { ruleId: string; value?: string }[]) =>
     Promise.all(refs.map((r) => expandRule(db, entity, sources, r.ruleId, r.value)));

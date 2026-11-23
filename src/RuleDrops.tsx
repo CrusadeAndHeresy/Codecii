@@ -1,7 +1,7 @@
 // Dropdowns that keep you on the unit: a rule opens in place, and the rules it refers to open inside it.
 import { createContext, useContext, useEffect, useState } from 'react';
 import { db } from './db';
-import type { Source, Stat } from './model';
+import type { Rule, Source, Stat } from './model';
 import type { EditionIndex } from './search';
 import { loadRuleView, type RuleView } from './store';
 import { statText } from './importer';
@@ -33,7 +33,9 @@ export function RuleDrop({ item, index, open }: { item: RuleItem } & Ctx) {
         {item.faction && <span className="badge faction">{item.faction}</span>}
       </summary>
       <div className="ddbody">
-        {item.missing ? <p className="muted small">Not in your library yet.</p> : opened && <RuleBody ruleId={item.ruleId} index={index} open={open} />}
+        {item.missing
+          ? (item.trait ? opened && <TraitBody item={item} index={index} open={open} /> : <p className="muted small">This rule is not in your library yet.</p>)
+          : opened && <RuleBody ruleId={item.ruleId} index={index} open={open} />}
       </div>
     </details>
   );
@@ -43,7 +45,6 @@ export function RuleDrop({ item, index, open }: { item: RuleItem } & Ctx) {
 export function RuleBody({ ruleId, index, open }: { ruleId: string } & Ctx) {
   const trail = useContext(Trail);
   const [v, setV] = useState<RuleView | null>();
-  const [shown, setShown] = useState<string[]>([]);
   useEffect(() => {
     let live = true;
     setV(undefined);
@@ -56,7 +57,6 @@ export function RuleBody({ ruleId, index, open }: { ruleId: string } & Ctx) {
   const cur = v.current;
   const seen = new Set<string>([ruleId, ...trail]);
   const subs = trail.length >= MAX_DEPTH ? [] : [...v.related, ...v.mentions].filter((r) => !seen.has(r.id) && seen.add(r.id));
-  const toggle = (id: string) => setShown((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   return (
     <Trail.Provider value={[...trail, ruleId]}>
       {(v.rule.phase || v.rule.category) && (
@@ -72,32 +72,69 @@ export function RuleBody({ ruleId, index, open }: { ruleId: string } & Ctx) {
         <div className="note" key={i}>FAQ ({srcLabel(x.source, x.a.page)}): {x.a.question ? `Q: ${x.a.question} ` : ''}A: {x.a.text}</div>
       ))}
       {v.otherReadings.length > 0 && <div className="note">Printed differently in another book. Open the rule page to compare.</div>}
-      {subs.length > 0 && (
-        <div className="subrules">
-          <div className="dlabel">Related rules</div>
-          <div className="chips">
-            {subs.map((r) => (
-              <button key={r.id} className={`chip${shown.includes(r.id) ? ' on' : ''}`} aria-expanded={shown.includes(r.id)} onClick={() => toggle(r.id)}>{r.name}{r.faction ? ` (${r.faction})` : ''}</button>
-            ))}
-          </div>
-          {subs.filter((r) => shown.includes(r.id)).map((r) => (
-            <div className="nested" key={r.id}>
-              <div className="nested-h"><span>{r.name}</span><button className="x" aria-label={`Close ${r.name}`} onClick={() => toggle(r.id)}>×</button></div>
-              <RuleBody ruleId={r.id} index={index} open={open} />
-            </div>
-          ))}
-        </div>
-      )}
+      <SubRuleChips label="Related rules" rules={subs} index={index} open={open} />
       <button className="link inline" onClick={() => open('r:' + ruleId)}>Open the rule page ›</button>
     </Trail.Provider>
   );
 }
 
-export function RuleSection({ label, items, index, open }: { label: string; items: RuleItem[] } & Ctx) {
-  if (!items.length) return null;
+// Chips that open the rule right underneath them, inside the rule you are reading.
+function SubRuleChips({ label, rules, index, open }: { label: string; rules: Rule[] } & Ctx) {
+  const [shown, setShown] = useState<string[]>([]);
+  if (!rules.length) return null;
+  const toggle = (id: string) => setShown((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  return (
+    <div className="subrules">
+      <div className="dlabel">{label}</div>
+      <div className="chips">
+        {rules.map((r) => (
+          <button key={r.id} className={`chip${shown.includes(r.id) ? ' on' : ''}`} aria-expanded={shown.includes(r.id)} onClick={() => toggle(r.id)}>{r.name}{r.faction ? ` (${r.faction})` : ''}</button>
+        ))}
+      </div>
+      {rules.filter((r) => shown.includes(r.id)).map((r) => (
+        <div className="nested" key={r.id}>
+          <div className="nested-h"><span>{r.name}</span><button className="x" aria-label={`Close ${r.name}`} onClick={() => toggle(r.id)}>×</button></div>
+          <RuleBody ruleId={r.id} index={index} open={open} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// A trait ("Allegiance", "Master of the Legion") is a keyword, usually with no rule of its own: show the general rule on traits
+// and the rules that name it, so there is still something to read.
+function TraitBody({ item, index, open }: { item: RuleItem } & Ctx) {
+  const [rules, setRules] = useState<Rule[]>();
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      const general = await db.rules.get(item.ruleId.split(':')[0] + ':traits');
+      const re = new RegExp(`\\b${item.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+      const ids = new Set<string>();
+      for (const p of await db.printings.toArray()) {
+        if (ids.size >= 6) break;
+        if (p.ruleId !== general?.id && re.test(p.fullText ?? p.summary ?? '')) ids.add(p.ruleId);
+      }
+      const named = (await db.rules.bulkGet([...ids])).filter((r): r is Rule => !!r);
+      if (live) setRules([...(general ? [general] : []), ...named]);
+    })();
+    return () => { live = false; };
+  }, [item.ruleId, item.name]);
+  return (
+    <>
+      <p className="muted small">“{item.name}” is a trait, a keyword that other rules look for. The library has no rule of its own for it.</p>
+      {rules === undefined ? <p className="muted small">Loading…</p>
+        : rules.length ? <SubRuleChips label="About traits, and rules that name it" rules={rules} index={index} open={open} />
+          : <p className="muted small">No rule in your library names it yet.</p>}
+    </>
+  );
+}
+
+export function RuleSection({ label, items, index, open, none = 'None listed for this unit.' }: { label: string; items: RuleItem[]; none?: string } & Ctx) {
   return (
     <div className="dgroup">
       <div className="dlabel">{label}</div>
+      {items.length === 0 && <p className="muted small">{none}</p>}
       {items.map((r) => <RuleDrop key={`${r.ruleId}|${r.value ?? ''}`} item={r} index={index} open={open} />)}
     </div>
   );

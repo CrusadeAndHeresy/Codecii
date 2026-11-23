@@ -193,15 +193,14 @@ function UnitCard({ unit, entity, look, index, open, edit, fold, onChange }: {
 
           {!folded && (
             <>
-              <RuleSection label="Type" items={model.types} index={index} open={open} />
+              <RuleSection label="Type and sub-types" items={model.types} index={index} open={open} />
               <RuleSection label="Special rules" items={model.rules} index={index} open={open} />
               <RuleSection label="Traits" items={model.traits} index={index} open={open} />
-              {model.wargear.length > 0 && (
-                <div className="dgroup">
-                  <div className="dlabel">Wargear</div>
-                  {model.wargear.map((g) => <GearDrop key={g.key} g={g} index={index} open={open} />)}
-                </div>
-              )}
+              <div className="dgroup">
+                <div className="dlabel">Wargear</div>
+                {model.wargear.length === 0 && <p className="muted small">None listed for this unit.</p>}
+                {model.wargear.map((g) => <GearDrop key={g.key} g={g} index={index} open={open} />)}
+              </div>
 
               <div className="dgroup taken">
                 <div className="dlabel">Options taken in this list</div>
