@@ -6,9 +6,9 @@
 import type { LibraryDB } from './db';
 import type { Entity, EntityProfile, RuleRef, Stat } from './model';
 import { nameScore, squashKey, tokens, type ArmyCopy, type ArmyGear, type ArmyUnit, type GearLookup } from './army';
-import { getEntity, mergedLine, nameFromId, pickVersion, typeLabels, typeRuleIds } from './views';
+import { getEntity, mergedLine, nameFromId, pickVersion, resolveTypeIds } from './views';
 
-export interface RuleItem { ruleId: string; name: string; value?: string; faction?: string; missing?: boolean; tag?: string }
+export interface RuleItem { ruleId: string; name: string; value?: string; faction?: string; missing?: boolean; trait?: boolean; tag?: string }
 export interface GearLine { label: string; stats: Stat[]; rules: RuleItem[] }
 export interface GearItem {
   key: string;
@@ -151,8 +151,8 @@ async function ruleItem(db: LibraryDB, ref: RuleRef, faction: string | undefined
 }
 
 async function typeItems(db: LibraryDB, editionId: string, unitType: string | undefined, subTypes: string[], faction: string | undefined, cache: RuleCache) {
-  const labels = typeLabels(unitType, subTypes);
-  return Promise.all(typeRuleIds(editionId, unitType, subTypes).map((id, i) => ruleItem(db, { ruleId: id }, faction, cache, labels[i])));
+  const found = await resolveTypeIds(db, editionId, unitType, subTypes);
+  return Promise.all(found.map((f) => ruleItem(db, { ruleId: f.id }, faction, cache, f.label)));
 }
 
 async function gearFromEntity(db: LibraryDB, id: string, faction: string | undefined, cache: RuleCache, seen: Set<string>, depth = 0): Promise<GearItem> {
@@ -256,7 +256,7 @@ export async function buildUnitCard(db: LibraryDB, unit: ArmyUnit, entity: Entit
       const [t, r, tr, w] = await Promise.all([
         typeItems(db, entity.editionId, src.unitType, src.subTypes, fac, cache),
         Promise.all(src.rules.map((x) => ruleItem(db, x, fac, cache))),
-        Promise.all(src.traits.map((x) => ruleItem(db, x, fac, cache))),
+        Promise.all(src.traits.map(async (x) => ({ ...(await ruleItem(db, x, fac, cache)), trait: true }))),
         Promise.all(src.wargearIds.map((id) => gearFromEntity(db, id, fac, cache, new Set()))),
       ]);
       return { label, stats, t, r, tr, w };
