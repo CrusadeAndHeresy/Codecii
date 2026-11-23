@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => ({
       : VitePWA({
           registerType: 'autoUpdate',
           manifest: {
-            name: 'Rules Library', short_name: 'Rules', display: 'standalone',
+            name: 'Codecii', short_name: 'Codecii', display: 'standalone',
             background_color: '#111317', theme_color: '#111317',
             icons: [
               { src: 'icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => ({
             ],
           },
           workbox: {
-            globPatterns: ['**/*.{js,css,html,svg,png}'],
+            globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
             // The list readers (PDF and screenshot) are big; they are kept after first use, not downloaded with the app.
             globIgnores: ['vendor/**'],
             runtimeCaching: [{
