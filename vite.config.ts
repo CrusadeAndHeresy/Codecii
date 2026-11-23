@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => ({
       : VitePWA({
           registerType: 'autoUpdate',
           manifest: {
-            name: 'Codecii', short_name: 'Codecii', display: 'standalone',
+            name: 'Codecii', short_name: 'Codecii', id: '/', start_url: '/', scope: '/', display: 'standalone', display_override: ['standalone', 'minimal-ui'], orientation: 'portrait',
             background_color: '#111317', theme_color: '#111317',
             icons: [
               { src: 'icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },

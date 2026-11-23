@@ -7,6 +7,7 @@ import { applyImport, eraseAll, loadRuleView, preferPrinting, removeSource, remo
 import { buildCombo, loadEntityView, type Combo, type EntityView, type InPlay, type ProfileView, type SwapView, type TrayRef, type WargearView } from './views';
 import type { ReactNode } from 'react';
 import { signOut } from './auth';
+import { getTheme, setTheme, type Theme } from './theme';
 import ArmyPane from './ArmyPane';
 
 type Tab = 'search' | 'browse' | 'army' | 'import' | 'library';
@@ -819,11 +820,41 @@ function LibraryPane({ onChange, version, onErased }: { onChange: () => void; ve
         </section>
       )}
       <p className="muted small">Stored on this device and works offline. Your transcribed rules text is for your own use; it isn't shared.</p>
+      <InstallHint />
+      <ThemePicker />
       <section>
         <h3>Account</h3>
         <button className="small-btn" onClick={() => { void signOut(); }}>Sign out</button>
       </section>
     </div>
+  );
+}
+
+// Shown only in a normal browser tab (address bar visible), never in the installed app.
+function InstallHint() {
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true;
+  const [hidden, setHidden] = useState(() => { try { return localStorage.getItem('install-hint') === 'off'; } catch { return false; } });
+  if (standalone || hidden) return null;
+  return (
+    <section className="plan">
+      <h3>Hide the address bar</h3>
+      <p className="muted small">You're in a browser tab. On iPhone: Share, then Add to Home Screen, keep "Open as Web App" on, and open Codecii from the new icon. On Android: menu, then Install app.</p>
+      <button className="small-btn" onClick={() => { try { localStorage.setItem('install-hint', 'off'); } catch { /* storage unavailable */ } setHidden(true); }}>Got it</button>
+    </section>
+  );
+}
+
+function ThemePicker() {
+  const [t, setT] = useState<Theme>(getTheme());
+  return (
+    <section>
+      <h3>Theme</h3>
+      <div className="filters" role="group" aria-label="Theme">
+        {(['auto', 'dark', 'light'] as Theme[]).map((x) => (
+          <button key={x} className={t === x ? 'on' : ''} aria-pressed={t === x} onClick={() => { setTheme(x); setT(x); }}>{x === 'auto' ? 'Auto (phone)' : x[0].toUpperCase() + x.slice(1)}</button>
+        ))}
+      </div>
+    </section>
   );
 }
 
