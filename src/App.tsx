@@ -820,12 +820,27 @@ function LibraryPane({ onChange, version, onErased }: { onChange: () => void; ve
         </section>
       )}
       <p className="muted small">Stored on this device and works offline. Your transcribed rules text is for your own use; it isn't shared.</p>
+      <InstallHint />
       <ThemePicker />
       <section>
         <h3>Account</h3>
         <button className="small-btn" onClick={() => { void signOut(); }}>Sign out</button>
       </section>
     </div>
+  );
+}
+
+// Shown only in a normal browser tab (address bar visible), never in the installed app.
+function InstallHint() {
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true;
+  const [hidden, setHidden] = useState(() => { try { return localStorage.getItem('install-hint') === 'off'; } catch { return false; } });
+  if (standalone || hidden) return null;
+  return (
+    <section className="plan">
+      <h3>Hide the address bar</h3>
+      <p className="muted small">You're in a browser tab. On iPhone: Share, then Add to Home Screen, keep "Open as Web App" on, and open Codecii from the new icon. On Android: menu, then Install app.</p>
+      <button className="small-btn" onClick={() => { try { localStorage.setItem('install-hint', 'off'); } catch { /* storage unavailable */ } setHidden(true); }}>Got it</button>
+    </section>
   );
 }
 
