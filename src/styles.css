@@ -1,3 +1,4 @@
+@font-face { font-family: 'Cinzel'; font-style: normal; font-weight: 700; font-display: swap; src: url(/fonts/cinzel-latin-700-normal.woff2) format('woff2'); }
 /* Spacing follows Creatio: 16px page gutter, 640px column, 8px gaps, cards 12px 14px / radius 12,
    buttons 44px / radius 10, chips 40px with 6px gaps, small uppercase section labels. */
 :root {
@@ -22,6 +23,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 @media (min-width: 900px) { .app { max-width: none; } }
 
 .top { display: flex; flex-direction: column; gap: 8px; margin: 0 0 12px; }
+.wordmark { margin: 0; text-align: center; font-family: Cinzel, Georgia, serif; text-transform: uppercase; letter-spacing: .14em; font-weight: 700; font-size: 1.7rem; line-height: 1.2; color: var(--text); }
 .top-row { display: flex; align-items: center; gap: 8px; }
 .top select { flex: 1; min-width: 0; width: 100%; min-height: 44px; padding: 10px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 10px; }
 .top .muted { white-space: nowrap; }
@@ -186,6 +188,7 @@ button.link.inline { min-height: 0; padding: 4px 0; }
 .auth { min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 24px var(--gutter, 16px); padding-top: calc(24px + env(safe-area-inset-top, 0px)); }
 .auth-card { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 14px; }
 .auth-card h1 { margin: 0; font-size: 1.5rem; }
+.auth-card h1.wordmark { font-size: 1.7rem; }
 .auth-card p { margin: 0; }
 .auth-card label { display: flex; flex-direction: column; gap: 6px; font-size: .85rem; color: var(--muted); font-weight: 600; }
 .auth-card input { min-height: 48px; padding: 10px 12px; font-size: 1rem; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--text); outline: none; }

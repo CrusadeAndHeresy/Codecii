@@ -34,7 +34,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   return (
     <main className="auth">
       <form onSubmit={submit} className="auth-card">
-        <h1>Rules Library</h1>
+        <h1 className="wordmark">Codecii</h1>
         <p className="muted">Sign in to continue.</p>
         <label>Email
           <input type="email" inputMode="email" autoComplete="username" autoCapitalize="none" required value={email} onChange={(e) => setEmail(e.target.value)} />

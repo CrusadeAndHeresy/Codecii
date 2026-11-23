@@ -99,6 +99,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="top">
+        <h1 className="wordmark">Codecii</h1>
         <div className="top-row">
           <select aria-label="Game system and edition" value={editionId ?? ''} onChange={(e) => { setEditionId(e.target.value); setStack([]); }}>
             {!editions.length && <option value="">No systems yet</option>}
