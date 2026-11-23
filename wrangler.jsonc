@@ -8,6 +8,9 @@
     // The app is a single page; unknown paths load index.html.
     "not_found_handling": "single-page-application"
   },
+  // Workers Builds runs `npx wrangler preview` for every branch except main. That command needs a `previews` block,
+  // even an empty one, and Wrangler 4.135 or newer (see devDependencies). Without them the preview build fails.
+  "previews": {},
   // Attaches the subdomain and creates its DNS record and certificate on deploy.
   "routes": [
     { "pattern": "codecii.crusadeandheresy.com", "custom_domain": true }
