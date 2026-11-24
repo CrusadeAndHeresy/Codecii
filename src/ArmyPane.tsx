@@ -1,5 +1,6 @@
 // The Army tab: read an army list (PDF, screenshots or pasted text), then show one card per unit,
 // grouped by battlefield role, with every rule a tap away.
+import { scrollToTop } from './scroll';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { db } from './db';
 import type { Entity } from './model';
@@ -40,7 +41,7 @@ export default function ArmyPane({ index, editionId, open }: { index?: EditionIn
   useEffect(() => { void load(); }, [load]);
 
   const active = armies.find((a) => a.id === activeId);
-  const pick = (id?: string) => { setActiveId(id); store.set(id ?? ''); setEdit(false); window.scrollTo(0, 0); };
+  const pick = (id?: string) => { setActiveId(id); store.set(id ?? ''); setEdit(false); scrollToTop(); };
   const save = async (a: Army) => { await db.armies.put({ ...a, updatedAt: Date.now() }); await load(); };
 
   const finish = async (reading: Reading, sourceName?: string) => {
