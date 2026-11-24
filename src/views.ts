@@ -32,7 +32,7 @@ export async function getEntity(db: LibraryDB, id: string, faction?: string) {
 
 export const nameFromId = (id: string) => id.split(/[:#]/).pop()!.split('~')[0].replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
-export interface WargearView { id: string; name: string; entity?: Entity; rules: InPlay[] }
+export interface WargearView { id: string; name: string; entity?: Entity; rules: InPlay[]; traits: InPlay[]; lines: { name?: string; stats: Stat[] }[] }
 
 // One profile line of a unit, expanded for display.
 export interface ProfileView {
@@ -142,7 +142,11 @@ export async function loadEntityView(db: LibraryDB, entityId: string): Promise<E
   const wargearOf = (wargearIds: string[]) => Promise.all(wargearIds.map(async (id): Promise<WargearView> => {
     const e = await getEntity(db, id, entity.faction);
     const rules = e ? await Promise.all(e.rules.map((r) => expandRule(db, e, sources, r.ruleId, r.value))) : [];
-    return { id: e?.id ?? id, name: e?.name ?? nameFromId(id), entity: e, rules };
+    const traitRefs = e ? [...(e.traits ?? []), ...(e.profiles ?? []).flatMap((p) => p.traits ?? [])] : [];
+    const seen = new Set<string>();
+    const traits = e ? await Promise.all(traitRefs.filter((r) => { const k = `${r.ruleId}|${r.value ?? ''}`; return !seen.has(k) && !!seen.add(k); }).map((r) => expandRule(db, e, sources, r.ruleId, r.value))) : [];
+    const lines = e ? ((e.profiles ?? []).length ? e.profiles!.map((p) => ({ name: p.names.join(' / '), stats: p.stats })) : [{ stats: e.stats }]).filter((l) => l.stats.length) : [];
+    return { id: e?.id ?? id, name: e?.name ?? nameFromId(id), entity: e, rules, traits, lines };
   }));
   const typesOf = async (unitType: string | undefined, subTypes: string[]) => {
     const found = await resolveTypeIds(db, entity.editionId, unitType, subTypes);

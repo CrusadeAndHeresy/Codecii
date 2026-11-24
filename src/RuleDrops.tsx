@@ -74,7 +74,7 @@ export function RuleBody({ ruleId, index, open }: { ruleId: string } & Ctx) {
 }
 
 // The rule's own wording first; any background paragraph before it is one tap away (the rule page has it all).
-function RuleText({ summary, fullText, text }: { summary?: string; fullText?: string; text: string }) {
+export function RuleText({ summary, fullText, text }: { summary?: string; fullText?: string; text: string }) {
   const { intro, body } = splitIntro(summary, fullText);
   if (!intro.length) return <p className="ruletext small-text">{text}</p>;
   return (

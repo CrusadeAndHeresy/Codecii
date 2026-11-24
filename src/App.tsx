@@ -9,7 +9,7 @@ import type { ReactNode } from 'react';
 import { signOut } from './auth';
 import { getTheme, setTheme, type Theme } from './theme';
 import ArmyPane from './ArmyPane';
-import { RuleDrop as InlineRule } from './RuleDrops';
+import { RuleDrop as InlineRule, RuleText } from './RuleDrops';
 import { scrollToTop, rememberScroll, restoreScroll } from './scroll';
 
 type Tab = 'army' | 'search' | 'library' | 'about';
@@ -576,7 +576,7 @@ function RuleDrop({ r, nav }: { r: InPlay; nav: NavProps }) {
         {r.rule?.faction && <span className="badge faction">{r.rule.faction}</span>}
       </summary>
       <div className="ddbody">
-        {cur ? <p className="ruletext small-text">{cur.text}</p> : <p className="muted small">Not in your library yet.</p>}
+        {cur ? <RuleText summary={cur.printing.summary} fullText={cur.printing.fullText} text={cur.text} /> : <p className="muted small">Not in your library yet.</p>}
         {cur && <div className="source">{srcLabel(cur.source, cur.printing.page)}</div>}
         {r.rule && <button className="link" onClick={() => nav.open('r:' + r.ruleId)}>Open rule ›</button>}
       </div>
@@ -584,27 +584,28 @@ function RuleDrop({ r, nav }: { r: InPlay; nav: NavProps }) {
   );
 }
 
-// Wargear: a link to its own entry, with its rules as dropdowns underneath.
+// Wargear: one dropdown. Its profile, its rules and traits (each a dropdown of its own) and any options sit inside.
 function WargearDrop({ w, nav, swaps }: { w: WargearView; nav: NavProps; swaps: SwapView[] }) {
   const choices = swaps.flatMap((sw) => sw.choices);
+  const all = [...w.rules, ...w.traits.filter((t) => !w.rules.some((r) => r.ruleId === t.ruleId))];
+  const empty = all.length === 0 && w.lines.length === 0 && choices.length === 0;
   return (
-    <div className="wg">
-      <div className="wg-head">
-        {w.entity
-          ? <button className="link" onClick={() => nav.open('e:' + w.id)}>{w.name} ›</button>
-          : <span className="muted">{w.name}</span>}
-        {!w.entity && <span className="muted small">not in your library yet</span>}
-      </div>
-      {w.rules.length > 0 && (
-        <details className="dd">
-          <summary>Rules ({w.rules.length})</summary>
-          <div className="ddbody">{w.rules.map((r) => <RuleDrop key={r.ruleId + (r.from[0]?.value ?? '')} r={r} nav={nav} />)}</div>
-        </details>
-      )}
-      {choices.length > 0 && (
-        <details className="dd">
-          <summary>Options ({choices.length})</summary>
-          <div className="ddbody">
+    <details className="dd gear-dd">
+      <summary>
+        <span>{w.name}</span>
+        {!w.entity && <span className="tag warn">not in library</span>}
+      </summary>
+      <div className="ddbody">
+        {w.lines.map((l, i) => (
+          <div key={i}>
+            {l.name && w.lines.length > 1 && <div className="muted small">{l.name}</div>}
+            <div className="statline">{l.stats.map((s) => <div key={s.label}><span>{s.label}</span><b>{statText(s.value)}</b></div>)}</div>
+          </div>
+        ))}
+        {all.map((r) => <RuleDrop key={r.ruleId + (r.from[0]?.value ?? '')} r={r} nav={nav} />)}
+        {choices.length > 0 && (
+          <div className="dgroup">
+            <div className="dlabel">Options</div>
             <ul className="opts">{choices.map((c, i) => (
               <li key={i}>
                 <ChoiceLink name={c.name} entityId={c.entityId} profileIndex={c.profileIndex} nav={nav} />
@@ -612,9 +613,11 @@ function WargearDrop({ w, nav, swaps }: { w: WargearView; nav: NavProps; swaps: 
               </li>
             ))}</ul>
           </div>
-        </details>
-      )}
-    </div>
+        )}
+        {empty && <p className="muted small">{w.entity ? 'No profile or rules listed for this item.' : 'Not in your library yet.'}</p>}
+        {w.entity && <button className="link inline" onClick={() => nav.open('e:' + w.id)}>Open {w.name} page ›</button>}
+      </div>
+    </details>
   );
 }
 

@@ -191,14 +191,14 @@ function UnitCard({ unit, entity, look, index, open, edit, fold, onChange }: {
 
       {!model ? <div className="muted small">Loading…</div> : (
         <>
+          {model.lines.filter((l) => l.stats.length).map((l) => (
+            <div key={l.index}>
+              {(l.label || l.tag) && <div className="muted small">{l.label}{l.tag ? ` · ${l.tag}` : ''}</div>}
+              <StatLine stats={l.stats} />
+            </div>
+          ))}
           {!folded && (
             <>
-              {model.lines.filter((l) => l.stats.length).map((l) => (
-                <div key={l.index}>
-                  {(l.label || l.tag) && <div className="muted small">{l.label}{l.tag ? ` · ${l.tag}` : ''}</div>}
-                  <StatLine stats={l.stats} />
-                </div>
-              ))}
               {model.notes.map((n) => <div className="note" key={n}>{n}</div>)}
               <RuleSection label="Type and sub-types" items={model.types} index={index} open={open} />
               <RuleSection label="Special rules" items={model.rules} index={index} open={open} />
