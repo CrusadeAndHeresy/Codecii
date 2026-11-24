@@ -11,7 +11,7 @@ import { getTheme, setTheme, type Theme } from './theme';
 import ArmyPane from './ArmyPane';
 import { scrollToTop } from './scroll';
 
-type Tab = 'search' | 'browse' | 'army' | 'import' | 'library';
+type Tab = 'army' | 'search' | 'library' | 'about';
 // Navigation: "r:<ruleId>", "e:<entityId>", "c:tray" (rules together from the tray), "c:<TrayRef>" (one item's rules together)
 type Nav = string;
 
@@ -21,7 +21,9 @@ const pref = {
 };
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>('search');
+  const [tab, setTab] = useState<Tab>('army');
+  const [cat, setCat] = useState<string>();
+  const [menu, setMenu] = useState(false);
   const [systems, setSystems] = useState<GameSystem[]>([]);
   const [editions, setEditions] = useState<Edition[]>([]);
   const [editionId, setEditionId] = useState<string | undefined>(pref.get('edition'));
@@ -89,20 +91,38 @@ export default function App() {
 
   const main = (
     <>
-      {tab === 'search' && <SearchPane index={index} bookId={bookId} onOpen={openFresh} selected={current} />}
-      {tab === 'browse' && <BrowsePane index={index} bookId={bookId} editionId={editionId} version={version} onOpen={openFresh} />}
       {tab === 'army' && <ArmyPane index={index} editionId={editionId} open={open} />}
-      {tab === 'import' && <ImportPane onDone={(edId) => { setEditionId(edId); bump(); setTab('search'); }} />}
-      {tab === 'library' && <LibraryPane onChange={bump} version={version} onErased={() => { setTray([]); setStack([]); bump(); }} />}
+      {tab === 'search' && (
+        <SearchPane index={index} editionId={editionId} version={version} onOpen={openFresh} selected={current} cat={cat} setCat={setCat}
+          bookId={bookId} books={hasBooks ? index!.books : []} setBook={(b) => { setBookPick(b); setCat(undefined); setStack([]); }} />
+      )}
+      {tab === 'library' && <LibraryPane onChange={bump} version={version} onDone={(edId) => { setEditionId(edId); bump(); }} onErased={() => { setTray([]); setStack([]); bump(); }} />}
+      {tab === 'about' && <AboutPane onErased={() => { setTray([]); setStack([]); bump(); }} />}
     </>
   );
-  const showDetail = !wide && current && (tab === 'search' || tab === 'browse' || tab === 'army');
+  const onRules = tab === 'search' || tab === 'army';
+  const showDetail = !wide && current && onRules;
 
   return (
     <div className="shell">
     <div className="scroll"><div className="app">
       <header className="top">
-        <h1 className="wordmark">Codecii</h1>
+        <div className="brandrow">
+          <h1 className="wordmark">Codecii</h1>
+          <button className="menu-btn" aria-label="Menu" aria-expanded={menu} onClick={() => setMenu((m) => !m)}>
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+          </button>
+          {menu && (
+            <>
+              <div className="menu-back" onClick={() => setMenu(false)} />
+              <ul className="menu" role="menu">
+                {([['army', 'Army'], ['search', 'Search'], ['library', 'Library & import'], ['about', 'About']] as [Tab, string][]).map(([t, label]) => (
+                  <li key={t}><button role="menuitem" className={tab === t ? 'on' : ''} onClick={() => { setTab(t); setMenu(false); if (!wide) setStack([]); }}>{label}</button></li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
         <div className="top-row">
           <select aria-label="Game system and edition" value={editionId ?? ''} onChange={(e) => { setEditionId(e.target.value); setStack([]); }}>
             {!editions.length && <option value="">No systems yet</option>}
@@ -114,15 +134,9 @@ export default function App() {
           </select>
           {counts && <span className="muted small">{counts.rules} rules · {counts.entities} units/gear</span>}
         </div>
-        {hasBooks && !showDetail && (tab === 'search' || tab === 'browse') && (
-          <select aria-label="Book" value={bookId ?? ''} onChange={(e) => { setBookPick(e.target.value || undefined); setStack([]); }}>
-            <option value="">All books</option>
-            {index!.books.map((b) => <option key={b.id} value={b.id}>{b.title}{b.version ? ` v${b.version}` : ''} · {b.rules + b.entities}</option>)}
-          </select>
-        )}
       </header>
 
-      {wide ? (
+      {wide && onRules ? (
         <div className="split">
           <div className="pane">{main}</div>
           <div className="pane card-pane">{detail ?? <div className="empty">Pick a rule or unit to read it here.</div>}</div>
@@ -132,15 +146,15 @@ export default function App() {
     </div></div>
 
       {tray.length > 0 && current !== 'c:tray' && (
-        <button className="traybar" onClick={() => { if (tab !== 'search' && tab !== 'browse' && tab !== 'army') setTab('search'); open('c:tray'); }}>
+        <button className="traybar" onClick={() => { if (!onRules) setTab('search'); open('c:tray'); }}>
           <span>Rules together</span><span className="count">{tray.length}</span><span>›</span>
         </button>
       )}
       <nav className="tabs">
-        {(['search', 'browse', 'army', 'import', 'library'] as Tab[]).map((t) => (
+        {(['army', 'search'] as const).map((t) => (
           <button key={t} className={tab === t ? 'on' : ''} aria-current={tab === t ? 'page' : undefined} onClick={() => { setTab(t); if (!wide) setStack([]); }}>
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{TAB_ICONS[t]}</svg>
-            <span>{{ search: 'Search', browse: 'Browse', army: 'Army', import: 'Import', library: 'Library' }[t]}</span>
+            <span>{{ search: 'Search', army: 'Army' }[t]}</span>
           </button>
         ))}
       </nav>
@@ -148,12 +162,9 @@ export default function App() {
   );
 }
 
-const TAB_ICONS: Record<Tab, JSX.Element> = {
+const TAB_ICONS = {
   search: <><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.2-4.2" /></>,
-  browse: <><path d="M4 5h16M4 12h16M4 19h16" /></>,
   army: <><path d="M12 3 5 6v5c0 4.5 3 8 7 10 4-2 7-5.5 7-10V6z" /></>,
-  import: <><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14" /></>,
-  library: <><path d="M5 4h4v16H5zM11 4h4v16h-4zM17 6l3 .8-3.5 13.2-3-.8z" /></>,
 };
 
 interface NavProps { open: (n: Nav) => void; back?: () => void; inTray: (r: TrayRef) => boolean; toggleTray: (r: TrayRef) => void }
@@ -170,36 +181,49 @@ const KIND_FILTERS: { label: string; kinds?: HitKind[]; scope?: Scope }[] = [
   { label: 'Wargear', kinds: ['weapon', 'wargear', 'other'] },
 ];
 
-function SearchPane({ index, bookId, onOpen, selected }: { index?: EditionIndex; bookId?: string; onOpen: (n: Nav) => void; selected?: string }) {
+function SearchPane({ index, editionId, version, bookId, books, setBook, onOpen, selected, cat, setCat }: {
+  index?: EditionIndex; editionId?: string; version: number; bookId?: string; books: EditionIndex['books']; setBook: (id?: string) => void;
+  onOpen: (n: Nav) => void; selected?: string; cat?: string; setCat: (c?: string) => void;
+}) {
   const [q, setQ] = useState(() => pref.get('q') ?? '');
   const [filter, setFilter] = useState(0);
   const tier: Tier | undefined = undefined; // tier filter removed from the search bar (2026-11-16)
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => { pref.set('q', q); }, [q]);
   const searching = q.trim().length >= 2;
-  const listing = !searching && !!bookId; // no query but a book picked: show everything in it, in page order
   const hits = useMemo(() => {
-    if (!index) return [];
-    if (searching) return index.search(q, 40, KIND_FILTERS[filter].kinds, tier, bookId, KIND_FILTERS[filter].scope);
-    return bookId ? index.list(bookId, KIND_FILTERS[filter].kinds, tier, KIND_FILTERS[filter].scope) : [];
-  }, [index, q, filter, tier, bookId]);
+    if (!index || !searching) return [];
+    return index.search(q, 40, KIND_FILTERS[filter].kinds, tier, bookId, KIND_FILTERS[filter].scope);
+  }, [index, q, filter, tier, bookId, searching]);
   const bookTitle = index?.books.find((b) => b.id === bookId)?.title;
   return (
     <div>
       <div className="searchhead">
-      <div className="searchbar">
-        <input ref={input} type="search" inputMode="search" autoFocus placeholder="Rules or units, e.g. rend, FNP, breachers"
-          value={q} onChange={(e) => setQ(e.target.value)} autoCapitalize="off" autoCorrect="off" spellCheck={false} />
-        {q && <button className="clear" aria-label="Clear" onClick={() => { setQ(''); input.current?.focus(); }}>×</button>}
+        <div className="searchbar">
+          <input ref={input} type="search" inputMode="search" placeholder="Search rules or units"
+            value={q} onChange={(e) => setQ(e.target.value)} autoCapitalize="off" autoCorrect="off" spellCheck={false} />
+          {q && <button className="clear" aria-label="Clear" onClick={() => { setQ(''); input.current?.focus(); }}>×</button>}
+        </div>
+        <div className="selectors">
+          {books.length > 0 && (
+            <select aria-label="Book" value={bookId ?? ''} onChange={(e) => setBook(e.target.value || undefined)}>
+              <option value="">All books</option>
+              {books.map((b) => <option key={b.id} value={b.id}>{b.title}{b.version ? ` v${b.version}` : ''}</option>)}
+            </select>
+          )}
+          <select aria-label="Show" value={filter} onChange={(e) => { setFilter(+e.target.value); setCat(undefined); }}>
+            {KIND_FILTERS.map((f, i) => <option key={f.label} value={i}>{i === 0 ? 'Everything' : f.label}</option>)}
+          </select>
+        </div>
       </div>
-      </div>
-      <div className="filters kinds">
-        {KIND_FILTERS.map((f, i) => <button key={f.label} className={i === filter ? 'on' : ''} onClick={() => setFilter(i)}>{f.label}</button>)}
-      </div>
-      {searching && !hits.length && <div className="empty">Nothing matches “{q}”{bookTitle ? ' in this book' : ''}.</div>}
-      {listing && <p className="muted small">{hits.length} {hits.length === 1 ? 'entry' : 'entries'} in {bookTitle}, in page order. Type to search within it.</p>}
-      {listing && !hits.length && <div className="empty">Nothing in this book for these filters.</div>}
-      <ul className="results">{hits.map((h) => <HitRow key={h.ref} h={h} showBook={!bookId} onOpen={onOpen} on={h.ref === selected} />)}</ul>
+      {searching ? (
+        <>
+          {!hits.length && <div className="empty">Nothing matches “{q}”{bookTitle ? ' in this book' : ''}.</div>}
+          <ul className="results">{hits.map((h) => <HitRow key={h.ref} h={h} showBook={!bookId} onOpen={onOpen} on={h.ref === selected} />)}</ul>
+        </>
+      ) : (
+        <BrowsePane index={index} bookId={bookId} editionId={editionId} version={version} onOpen={onOpen} cat={cat} setCat={setCat} filter={KIND_FILTERS[filter].label} />
+      )}
     </div>
   );
 }
@@ -227,11 +251,9 @@ function ListRow({ name, meta, faction, onClick }: { name: string; meta?: string
   );
 }
 
-function BrowsePane({ index, bookId, editionId, version, onOpen }: { index?: EditionIndex; bookId?: string; editionId?: string; version: number; onOpen: (n: Nav) => void }) {
-  const [cat, setCat] = useState<string>();
+function BrowsePane({ index, bookId, editionId, version, onOpen, cat, setCat, filter }: { index?: EditionIndex; bookId?: string; editionId?: string; version: number; onOpen: (n: Nav) => void; cat?: string; setCat: (c?: string) => void; filter: string }) {
   const [entities, setEntities] = useState<Entity[]>([]);
   useEffect(() => { if (editionId) db.entities.where('editionId').equals(editionId).toArray().then(setEntities); }, [editionId, version]);
-  useEffect(() => { setCat(undefined); }, [bookId]);
   if (!index) return null;
   const inBook = (id: string) => !bookId || bookId in (index.bookPages.get(id) ?? {});
   const pageIn = (id: string) => (bookId ? index.bookPages.get(id)?.[bookId] : undefined);
@@ -240,7 +262,11 @@ function BrowsePane({ index, bookId, editionId, version, onOpen }: { index?: Edi
   const groups: { key: string; label: string; count: number }[] = [
     ...index.categories.map((c) => ({ key: 'r:' + c, label: c, count: all.filter((r) => r.category === c).length })),
     ...(['unit', 'weapon', 'wargear'] as const).map((t) => ({ key: 'e:' + t, label: { unit: 'Units', weapon: 'Weapons', wargear: 'Wargear' }[t], count: bookEntities.filter((e) => e.type === t).length })),
-  ].filter((g) => g.count);
+  ].filter((g) => g.count).filter((g) => {
+    if (filter === 'All') return true;
+    const k = g.key.startsWith('e:') ? ({ 'e:unit': 'Units', 'e:weapon': 'Wargear', 'e:wargear': 'Wargear' } as Record<string, string>)[g.key] : MISSION_CATS.includes(g.key.slice(2)) ? 'Missions' : DETACHMENT_CATS.includes(g.key.slice(2)) ? 'Detachments' : 'Rules';
+    return k === filter;
+  });
 
   if (!cat) return (
     <ul className="results">{groups.map((g) => <ListRow key={g.key} name={g.label} meta={`${g.count}`} onClick={() => setCat(g.key)} />)}</ul>
@@ -685,7 +711,8 @@ function ComboView({ refs, fromTray, index, nav, onClear }: { refs: TrayRef[]; f
 
 type Staged = { name: string; plan?: ImportPlan; exists: boolean; error?: string };
 
-function ImportPane({ onDone }: { onDone: (editionId: string) => void }) {
+// File picking and review for imports; the chooser button can be placed anywhere, the review list goes once.
+function useImport(onDone: (editionId: string) => void) {
   const [staged, setStaged] = useState<Staged[]>([]);
   const [busy, setBusy] = useState(false);
   const [reading, setReading] = useState(false);
@@ -734,14 +761,14 @@ function ImportPane({ onDone }: { onDone: (editionId: string) => void }) {
     if (editionId) onDone(editionId);
   };
 
-  return (
-    <div className="pad">
-      <h2>Import rules files</h2>
-      <p className="muted">Choose one or more files at once: books, supplements, FAQs or errata. JSON or CSV. Each file replaces only its own source.</p>
-      <label className="file-btn">Choose files
-        <input type="file" multiple accept=".json,.csv,.txt,application/json,text/csv"
-          onChange={(e) => { const f = Array.from(e.target.files ?? []); if (f.length) read(f); e.target.value = ''; }} />
-      </label>
+  const chooser = (label = 'Import files') => (
+    <label className="file-btn">{label}
+      <input type="file" multiple accept=".json,.csv,.txt,application/json,text/csv"
+        onChange={(e) => { const f = Array.from(e.target.files ?? []); if (f.length) read(f); e.target.value = ''; }} />
+    </label>
+  );
+  const review = (
+    <div>
       {reading && <div className="muted">Checking files…</div>}
       {result && <div className="note">{result}</div>}
 
@@ -782,9 +809,11 @@ function ImportPane({ onDone }: { onDone: (editionId: string) => void }) {
       )}
     </div>
   );
+  return { chooser, review };
 }
 
-function LibraryPane({ onChange, version, onErased }: { onChange: () => void; version: number; onErased: () => void }) {
+function LibraryPane({ onChange, version, onDone, onErased }: { onChange: () => void; version: number; onDone: (editionId: string) => void; onErased: () => void }) {
+  const imp = useImport(onDone);
   const [data, setData] = useState<{ systems: GameSystem[]; editions: Edition[]; sources: Source[]; counts: Map<string, number> }>();
   const [confirm, setConfirm] = useState<string>();
   useEffect(() => {
@@ -804,7 +833,9 @@ function LibraryPane({ onChange, version, onErased }: { onChange: () => void; ve
   return (
     <div className="pad">
       <h2>Library</h2>
-      {!data.systems.length && <p className="muted">Nothing here yet. Use Import to add a rules file.</p>}
+      {!data.systems.length && <p className="muted">Nothing here yet. Choose one or more rules files (JSON or CSV). Each file replaces only its own source.</p>}
+      <div className="import-top">{imp.chooser()}</div>
+      {imp.review}
       {data.systems.map((sys) => (
         <section key={sys.id}>
           <div className="src-row"><h3>{sys.name}</h3>
@@ -824,21 +855,31 @@ function LibraryPane({ onChange, version, onErased }: { onChange: () => void; ve
           ))}
         </section>
       ))}
-      {data.systems.length > 0 && (
-        <section className="plan">
-          <h3>Erase everything</h3>
-          <p className="muted small">Removes every game, book, rule and unit stored on this device. Your rules files are not touched, so you can import them again.</p>
-          {confirmRow('all', 'Erase everything on this device', async () => { await eraseAll(db); onErased(); }, 'Yes, erase everything', 'Cancel')}
-        </section>
-      )}
-      <p className="muted small">Stored on this device and works offline. Your transcribed rules text is for your own use; it isn't shared.</p>
-      <InstallHint />
+      {data.systems.length > 0 && <div className="import-top">{imp.chooser()}</div>}
+    </div>
+  );
+}
+
+function AboutPane({ onErased }: { onErased: () => void }) {
+  const [confirm, setConfirm] = useState(false);
+  return (
+    <div className="pad">
+      <h2>About</h2>
+      <AboutCard />
       <ThemePicker />
+      <InstallHint />
+      <p className="muted small">Stored on this device and works offline. Your transcribed rules text is for your own use; it isn't shared.</p>
       <section>
         <h3>Account</h3>
         <button className="small-btn" onClick={() => { void signOut(); }}>Sign out</button>
       </section>
-      <AboutCard />
+      <section className="plan">
+        <h3>Erase everything</h3>
+        <p className="muted small">Removes every game, book, rule and unit stored on this device. Your rules files are not touched, so you can import them again.</p>
+        {confirm
+          ? <span className="btns"><button className="small-btn danger" onClick={async () => { await eraseAll(db); setConfirm(false); onErased(); }}>Yes, erase everything</button><button className="small-btn" onClick={() => setConfirm(false)}>Cancel</button></span>
+          : <button className="small-btn" onClick={() => setConfirm(true)}>Erase everything on this device</button>}
+      </section>
     </div>
   );
 }
