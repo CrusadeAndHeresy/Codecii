@@ -185,7 +185,12 @@ export function parseGear(details: string[], unitName: string, look: GearLookup,
       const m = /^([^:,]{2,40}):\s*(.+)$/.exec(rest);
       if (m) { forModel = m[1].trim(); rest = m[2]; }
     }
-    for (let item of splitTop(rest)) {
+    // "mixed weapons ( chainsword , chainaxe )" is a way of saying which weapons: list each one.
+    const parts = splitTop(rest).flatMap((x) => {
+      const mm = /^(?:mixed|assorted|various)\s+(?:weapons?|wargear|equipment)\s*\(\s*(.+?)\s*\)$/i.exec(x.trim());
+      return mm ? splitTop(mm[1]) : [x];
+    });
+    for (let item of parts) {
       let label = lineLabel;
       const im = LABELS.exec(item.trim());           // "…, Prime Advantage: Hetaeron Guard, …" inside one line
       if (im) { label = pretty(im[1]); item = item.trim().slice(im[0].length); }
@@ -201,6 +206,7 @@ export function parseGear(details: string[], unitName: string, look: GearLookup,
       else if ((m = /^(one|two|three|four|five|six|seven|eight|nine|ten)\s+(.+)$/i.exec(item))) { count = WORD_NUMS[m[1].toLowerCase()]; item = m[2]; }
       else if ((m = /^(.+?)\s*[×xX]\s*(\d+)$/.exec(item)) || (m = /^(.+?)\s*\(\s*[×xX]\s*(\d+)\s*\)$/.exec(item))) { item = m[1]; count = +m[2]; }
       item = item.trim();
+      if (/^legion$/i.test(item)) continue;   // a stray heading word, not an item
       // "3 Aquilon Terminators" is who is in the unit, not wargear
       if (!label && tokens(item).some((t) => unitTokens.has(t)) && count !== undefined && !look.gear(item)) continue;
       if (!label && modelNames.some((n) => nameScore(item, n) >= 0.8) && !look.gear(item)) {
