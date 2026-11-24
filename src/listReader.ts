@@ -128,7 +128,7 @@ function detectSystem(text){
 const COSTED=/^([A-Z][A-Za-z\- ]{1,30}?)\s*(\(prime\))?\s*:\s*(.+?\(\s*\d{1,4}\s*\).*)$/i;
 function costedLines(texts){
   const T=texts.map(t=>String(t).replace(/ /g,' ').replace(/[\s.…·]*[.…]{2,}[\s.…·]*/g,' ').replace(/\s+/g,' ').trim());
-  if(T.filter(t=>COSTED.test(t)).length<3)return null;
+  if(T.filter(t=>COSTED.test(t)).length<2)return null;
   const costs=t=>[...t.matchAll(/\(\s*(\d{1,4})\s*\)/g)].reduce((a,m)=>a+ +m[1],0);
   const items=t=>t.split(/\s+\+\s+|,\s*/).map(x=>x.replace(/\(\s*\d{1,4}\s*\)/g,'').replace(/[.\s]+$/,'').trim()).filter(x=>/[A-Za-z]/.test(x));
   const out=[];let unit=null;
@@ -142,7 +142,10 @@ function costedLines(texts){
     if(/^\d[\d,]*\.?$/.test(t))continue;                                  // the right-hand column of line totals
     t=t.replace(/(\))\s*\d{1,4}\.?$/,'$1');                              // a line total left on the line itself
     if(/\bdetachment\b/i.test(t)&&!/:/.test(t.split('(')[0])){flush();out.push('++ '+t.replace(/\s*\(.*$/,'').trim()+' ++');continue}
-    const m=COSTED.exec(t);
+    let m=COSTED.exec(t);
+    let bare;
+    if(!m&&!/:/.test(t)&&!/^(inc\.?|includes?|including|\d)/i.test(t)&&(bare=/^([A-Z][A-Za-z' \-]{2,40}?)\s*\(\s*(\d{2,4})\s*\)\s*(?:\+\s*(.*))?$/.exec(t))&&+bare[2]>=40)
+      m=[t,'Units',undefined,bare[1]+' ('+bare[2]+')'+(bare[3]?' + '+bare[3]:'')];
     if(m&&!/^(prime advantage|officer of the line|command|inc\.?|includes)$/i.test(m[1].trim())||(m&&/^command$/i.test(m[1].trim())&&/^[A-Z][^(]*\(\s*\d/.test(m[3]))){
       flush();
       const [head,...rest]=m[3].split(/\s+\+\s+/);
@@ -176,8 +179,8 @@ function read(rawLines,opts={}){
 
   /* header: title, then up to a few lines before the first unit or heading; the army total is a lone number,
      "Faction • 1,700", "[2000pts]" or a "total" line */
-  let total=null,ti=0;
-  const name=((findPoints(L[0].text)||{name:L[0].text}).name||'').replace(/[\s:\-–—]+$/,'').trim()||L[0].text;
+  let total=null,ti=0,titleIsUnit=false;
+  let name=((findPoints(L[0].text)||{name:L[0].text}).name||'').replace(/[\s:\-–—]+$/,'').trim()||L[0].text;
   const fp0=findPoints(L[0].text);
   let first=1;
   for(let i=0;i<Math.min(L.length,6);i++){
@@ -191,6 +194,10 @@ function read(rawLines,opts={}){
   if(total==null&&fp0&&fp0.strong&&L.length>1&&L.slice(1).some(l=>findPoints(l.text))){total=fp0.pts;L[0].skip=true}
   /* lines between the title and the total are the subtitle (faction etc.) */
   for(let i=0;i<first;i++)L[i].skip=true;
+  if(first===1&&fp0&&!fp0.strong&&/[A-Za-z]/.test(fp0.name)){
+    const others=L.slice(1).map(l=>findPoints(l.text)).filter(Boolean);
+    if(others.length&&fp0.pts!==others.reduce((t,f)=>t+f.pts,0)){L[0].skip=false;titleIsUnit=true;name=opts.fallbackName||'Imported list'}
+  }
   if(first===1&&!(fp0&&!L[0].skip))L[0].skip=true;
 
   /* in a PDF, headings are at least as large as unit names */
@@ -270,7 +277,7 @@ function read(rawLines,opts={}){
   if(total!=null&&sum!==total)notes.push(`Units add up to ${sum} points; the list says ${total}`);
   if(total==null)notes.push('No army total found to check against');
 
-  if(!units.length&&fp0&&fp0.strong){
+  if(!units.length&&fp0&&(fp0.strong||L.length===1)){
     const e={k:'pts',t:L[0].text,l:L[0],pts:fp0.pts,name:fp0.name.trim(),details:L.slice(1).map(l=>({t:l.text,bullet:!!l.bullet})),strong:true};
     E.unshift(e);units=[e];sum=e.pts;total=null;notes.length=0;notes.push('Read as a single unit card');
   }
@@ -294,7 +301,7 @@ function read(rawLines,opts={}){
   if(!out.length){
     const names=L.filter(l=>!l.skip||l===L[0]);
     const short=names.filter(l=>l.text.split(/\s+/).length<=8);
-    if(names.length>=2&&short.length>=names.length*0.6&&!names.some(l=>statRow(l.text))){
+    if(names.length>=2&&short.length>=names.length*0.6&&!names.some(l=>statRow(l.text)||/\(\s*\d{2,4}\s*\)|\d{2,4}\s*(?:pts?|points?)\b|\s\d{2,4}\s*$/i.test(l.text))){
       let slot=null,last=null;const u=[];
       for(const l of names){
         const t=l.text.replace(/[\s:]+$/,'').trim();

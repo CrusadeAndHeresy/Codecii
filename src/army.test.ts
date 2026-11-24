@@ -174,3 +174,16 @@ describe('a list of bare unit names with no points', () => {
     expect(matchUnit('Tax Squad', lib).candidates.every((c) => c.score < SURE)).toBe(true);
   });
 });
+
+describe('points that look wrong are still read', () => {
+  it('keeps a unit with an odd cost, with or without a title or total', async () => {
+    const { ListReader } = await import('./listReader');
+    const names = (t: string) => (ListReader.readText(t, { fallbackName: 'Imported list' }) as any).units.map((u: any) => `${u.name}=${u.pts}`);
+    expect(names('My list\nPraetor 500\nTactical Squad 150')).toEqual(['Praetor=500', 'Tactical Squad=150']);
+    expect(names('Praetor 500\nTactical Squad 150')).toEqual(['Praetor=500', 'Tactical Squad=150']);
+    expect(names('Praetor 500')).toEqual(['Praetor=500']);
+    const r: any = ListReader.readText('My list [1000pts]\nPraetor 500\nTactical Squad 150', {});
+    expect(r.units.length).toBe(2);
+    expect(r.check.notes.join()).toMatch(/add up to 650/);
+  });
+});
