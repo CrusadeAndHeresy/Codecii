@@ -20,6 +20,7 @@ export interface ArmyCopy {
   models: number;
   modelsGuessed?: boolean;
   pts?: number;
+  legion?: string;        // the Legion the list's detachment names ("Blood Angels"); can be set by hand
   gear: ArmyGear[];
 }
 export interface ArmyUnit {
@@ -223,7 +224,7 @@ export function parseGear(details: string[], unitName: string, look: GearLookup,
 
 // ---------- Building an army from a reading ----------
 
-export interface ReadUnit { slot?: string; name: string; models: number; countSrc?: string; pts?: number; details?: string[] }
+export interface ReadUnit { slot?: string; legion?: string; name: string; models: number; countSrc?: string; pts?: number; details?: string[] }
 export interface Reading { name: string; system?: string; units: ReadUnit[]; check?: { total?: number | null; sum?: number; notes?: string[] } }
 export interface ArmyContext { editionId: string; units: Entity[]; look: GearLookup }
 
@@ -235,7 +236,7 @@ export function buildArmy(reading: Reading, ctx: ArmyContext, sourceName?: strin
     const matched = m.score >= 0.5 ? m.entity : undefined;
     const key = matched ? matched.id : 'x:' + nameKey(r.name);
     const copy: ArmyCopy = {
-      id: newId('c'), models: Math.max(1, r.models || 1), modelsGuessed: r.countSrc === 'guessed' || undefined, pts: r.pts,
+      id: newId('c'), models: Math.max(1, r.models || 1), modelsGuessed: r.countSrc === 'guessed' || undefined, pts: r.pts, legion: r.legion,
       gear: parseGear(r.details ?? [], matched?.name ?? r.name, ctx.look, matched ? [matched.name, ...(matched.profiles ?? []).flatMap((p) => p.names)] : []),
     };
     let u = groups.get(key);

@@ -131,7 +131,7 @@ describe('Journal Tactica: Zone Mortalis import (next to the core rulebook)', ()
     await applyImport(zdb, plan);
     const E = 'horus-heresy@3-0';
     const ix = await buildEditionIndex(zdb, E);
-    expect(ix.count).toBe(409 + 77);
+    expect(ix.count).toBe(414 + 77);
     expect(ix.search('doorway').slice(0, 3).map((h) => h.name)).toEqual(expect.arrayContaining(['Doorways', 'Doorway']));
     expect(ix.search('confined')[0].name).toBe('Confined Space');
     expect(ix.search('interface test').map((h) => h.name)).toEqual(expect.arrayContaining(['Interface Test Table', 'Cogitator Terminal']));
@@ -162,13 +162,13 @@ describe('Journal Tactica: Zone Mortalis import (next to the core rulebook)', ()
     expect(cx.wargear[0].entity!.stats.find((x) => x.label === 'RS')!.value).toBe('6');
     // book filter: what's in each book, with pages, and nothing leaks across
     const bk = ix.books;
-    expect(bk.map((b) => [b.title.slice(0, 12), b.rules, b.entities])).toEqual([['Age of Darkn', 409, 0], ['Journal Tact', 77, 10]]);
+    expect(bk.map((b) => [b.title.slice(0, 12), b.rules, b.entities])).toEqual([['Age of Darkn', 414, 0], ['Journal Tact', 77, 10]]);
     const zmId = bk[1].id, coreId = bk[0].id;
     const zmList = ix.list(zmId);
     expect(zmList.length).toBe(87);
     expect(zmList.every((h) => h.page)).toBe(true);
     expect(zmList.map((h) => parseFloat(h.page!))).toEqual([...zmList.map((h) => parseFloat(h.page!))].sort((a, b) => a - b));
-    expect(ix.list(coreId).length).toBe(409);
+    expect(ix.list(coreId).length).toBe(414);
     const inZm = ix.search('door', 40, undefined, undefined, zmId);
     expect(inZm.length).toBeGreaterThan(0);
     expect(inZm.every((h) => zmId in (ix.bookPages.get(h.id) ?? {}))).toBe(true);
@@ -178,7 +178,7 @@ describe('Journal Tactica: Zone Mortalis import (next to the core rulebook)', ()
     expect(ix.list(zmId, ['unit']).length).toBe(5);
     // re-importing the same book replaces it rather than doubling it
     await applyImport(zdb, planImport(JSON.parse(fs.readFileSync(zmPath, 'utf8'))));
-    expect((await buildEditionIndex(zdb, E)).count).toBe(409 + 77);
+    expect((await buildEditionIndex(zdb, E)).count).toBe(414 + 77);
   });
 });
 
@@ -192,7 +192,7 @@ describe('Horus Heresy 3.0 core rulebook import', () => {
     expect(plan.errors).toEqual([]);
     await applyImport(hdb, plan);
     const ix = await buildEditionIndex(hdb, 'horus-heresy@3-0');
-    expect(ix.count).toBe(409);
+    expect(ix.count).toBe(414);
     expect(ix.search('fnp')[0].name).toBe('Feel No Pain');
     expect(ix.search('ren')[0].name).toBe('Rending');
     expect(ix.search('deep strik')[0].name).toBe('Deep Strike');

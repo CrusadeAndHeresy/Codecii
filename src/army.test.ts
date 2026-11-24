@@ -15,6 +15,8 @@ describe('New Recruit table lists', () => {
       '(10) Tactical Squad 100 pts', '• 9x Legionary', '++ Heavy Transport ++', 'Spartan Assault Tank 2660 pts'].join('\n'));
     expect(r.units.map((u) => [u.slot, u.name, u.models])).toEqual([['Command', 'Master of Descent', 1], ['Troops', 'Tactical Squad', 10], ['Troops', 'Tactical Squad', 10], ['Heavy Transport', 'Spartan Assault Tank', 1]]);
     expect(r.units[1].details).toEqual(['9× Legionary', 'Prime Unit']);
+    const l = readArmyText(['The Fall', '1000', '++ Troops | Blood Angels ++', 'Tactical Squad 100 pts', '++ Troops | Space Wolves ++', 'Tactical Squad 100 pts'].join('\n'));
+    expect(l.units.map((u) => [u.slot, u.legion])).toEqual([['Troops', 'Blood Angels'], ['Troops', 'Space Wolves']]);
   });
 });
 

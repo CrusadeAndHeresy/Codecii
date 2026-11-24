@@ -18,6 +18,7 @@ const store = {
 };
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
+const LEGIONS = ['Dark Angels', "Emperor's Children", 'Iron Warriors', 'White Scars', 'Space Wolves', 'Imperial Fists', 'Night Lords', 'Blood Angels', 'Iron Hands', 'World Eaters', 'Ultramarines', 'Death Guard', 'Thousand Sons', 'Sons of Horus', 'Word Bearers', 'Salamanders', 'Raven Guard', 'Alpha Legion', 'Shattered Legions', 'Blackshields'];
 export default function ArmyPane({ index, editionId, open }: { index?: EditionIndex; editionId?: string; open: (nav: string) => void }) {
   const [armies, setArmies] = useState<Army[]>([]);
   const [ents, setEnts] = useState<Map<string, Entity>>(new Map());
@@ -168,6 +169,7 @@ function UnitCard({ unit, entity, look, index, open, edit, fold, onChange }: {
 
   return (
     <article className="card ucard">
+      <datalist id="legion-names">{LEGIONS.map((l) => <option key={l} value={l} />)}</datalist>
       <div className="uhead">
         <div className="uline">
           <button className="uname" disabled={!entity} onClick={() => entity && open('e:' + entity.id)}>{name}{entity && <span className="rb-go">›</span>}</button>
@@ -178,6 +180,7 @@ function UnitCard({ unit, entity, look, index, open, edit, fold, onChange }: {
           <span className="badge">{unitModels(unit)} model{unitModels(unit) === 1 ? '' : 's'}</span>
           {pts > 0 && <span className="badge">{pts} pts</span>}
           {entity?.faction && <span className="badge faction">{entity.faction}</span>}
+          {[...new Set(unit.copies.map((c) => c.legion).filter(Boolean))].map((l) => <span className="badge faction" key={l} title="The Legion this unit is taken as in your list">{l}</span>)}
           {unsure && <span className="badge warn">{entity ? 'Check match' : 'Not in library'}</span>}
         </div>
         {entity && name.toLowerCase() !== unit.listName.toLowerCase() && <div className="muted small">Listed as “{unit.listName}”</div>}
@@ -226,6 +229,10 @@ function UnitCard({ unit, entity, look, index, open, edit, fold, onChange }: {
             {unit.copies.map((c, i) => (
               <div className="copy" key={c.id}>
                 <div className="copy-h">{count > 1 ? `Copy ${i + 1} · ` : ''}{c.models}{c.modelsGuessed ? '?' : ''} model{c.models === 1 ? '' : 's'}{c.pts ? ` · ${c.pts} pts` : ''}</div>
+                <label className="small">Legion in this list{' '}
+                  <input list="legion-names" value={c.legion ?? ''} placeholder="e.g. Space Wolves"
+                    onChange={(e) => setCopy(c.id, (x) => ({ ...x, legion: e.target.value.trim() ? e.target.value : undefined }))} />
+                </label>
                 <GearChips gear={c.gear} index={index}
                   onRemove={(gi) => setCopy(c.id, (x) => ({ ...x, gear: x.gear.filter((_, k) => k !== gi) }))}
                   onMatch={(gi, h) => setCopy(c.id, (x) => ({ ...x, gear: x.gear.map((g, k) => (k === gi ? { ...g, kind: 'weapon', entityId: h.id, ruleId: undefined } : g)) }))} />

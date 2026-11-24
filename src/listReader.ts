@@ -240,7 +240,8 @@ function read(rawLines,opts={}){
     else if(lead){nm=lead[2];cnt={n:+lead[1]}}
     const mm=/^(.*?)\s*\((\d+)\s*models?\)\s*$/i.exec(nm);if(mm){nm=mm[1];cnt={n:+mm[2]}}
     if(!cnt)cnt=countModels(nm,e.details);
-    out.push({slot:group||'Units',name:nm.trim(),models:cnt?Math.max(1,cnt.n):1,src:group?'listed':'inferred',countSrc:cnt?'listed':'guessed',pts:e.pts,details:e.details.map(d=>d.t)});
+    const gp=/^(.*?)\s*\|\s*(.+)$/.exec(group||'');
+    out.push({slot:gp?gp[1]:(group||'Units'),legion:gp?gp[2]:undefined,name:nm.trim(),models:cnt?Math.max(1,cnt.n):1,src:group?'listed':'inferred',countSrc:cnt?'listed':'guessed',pts:e.pts,details:e.details.map(d=>d.t)});
   }
   const sys=opts.system||detectSystem(L.slice(0,6).map(l=>l.text).join(' ')+' '+(opts.hint||''));
   return {name,system:sys,units:out,check:{total,sum,matched:total!=null&&sum===total,notes},...(opts.debug?{debug:E}:{})};
@@ -282,12 +283,16 @@ function newRecruitLines(pages){
         const col=i.x<roleX-3?'name':(i.x<ptsX-3?'role':(i.x>ptsX+8?'opt':'x'));
         if(col==='name')row.name.push(i);else if(col==='role')row.role.push(i);else if(col==='opt')row.opt.push(i);
       }
+      /* the detachment heading above the table names the Legion: "Crusade Primary Detachment [980 Point(s)] ( IX - Blood Angels)" */
+      const dh=its.filter(i=>i.y>h.y&&i.x<nameX+1&&/\[[^\]]*Point\(s\)/i.test(i.s)).sort((a,b)=>a.y-b.y)[0];
+      const lm=dh&&/\(\s*(?:[IVXL]+\s*-\s*)?([^()]+?)\s*\)\s*$/.exec(dh.s);
+      const legion=lm?lm[1].trim():'';
       let lastRole=null;
       for(const r of rows){
         const txt=a=>a.sort((p,q)=>q.y-p.y||p.x-q.x).map(i=>i.s.trim()).join(' ').replace(/\s+/g,' ').trim();
         const name=txt(r.name),rl=txt(r.role).split(/\s+-\s+/)[0];
         if(!name)continue;
-        if(rl&&rl!==lastRole){out.push('++ '+rl+' ++');lastRole=rl}
+        if(rl&&rl!==lastRole){out.push('++ '+rl+(legion?' | '+legion:'')+' ++');lastRole=rl}
         out.push(`${name} ${r.pts} pts`);
         const lines=r.opt.sort((p,q)=>q.y-p.y||p.x-q.x).map(i=>i.s.trim()).filter(Boolean);
         const joined=[];
