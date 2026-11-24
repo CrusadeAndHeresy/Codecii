@@ -19,11 +19,14 @@
 :root[data-theme='dark'] { color-scheme: dark; }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--text); -webkit-text-size-adjust: 100%; }
-body::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: env(safe-area-inset-top, 0px); background: var(--bg); z-index: 20; }
+html, body { height: 100%; overflow: hidden; overscroll-behavior: none; background: var(--bg); }
+/* App shell: fills the screen, content scrolls inside .scroll, the tab bar is a flex child so it never moves. */
+.shell { position: fixed; inset: 0; display: flex; flex-direction: column; padding-top: env(safe-area-inset-top, 0px); background: var(--bg); }
+.scroll { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; }
 button, input, select, textarea { font: inherit; color: inherit; }
 
 /* page column */
-.app { max-width: 640px; margin: 0 auto; padding: calc(var(--gutter) + env(safe-area-inset-top, 0px)) var(--gutter) calc(130px + env(safe-area-inset-bottom, 0px)); }
+.app { max-width: 640px; margin: 0 auto; padding: var(--gutter) var(--gutter) 96px; }
 @media (min-width: 900px) { .app { max-width: none; } }
 
 .top { display: flex; flex-direction: column; gap: 8px; margin: 0 0 12px; }
@@ -33,7 +36,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .top .muted { white-space: nowrap; }
 
 /* search */
-.searchhead { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 4; background: var(--bg); margin: -8px calc(-1 * var(--gutter)) 0; padding: 8px var(--gutter); }
+.searchhead { position: sticky; top: 0; z-index: 4; background: var(--bg); margin: -8px calc(-1 * var(--gutter)) 0; padding: 8px var(--gutter); }
 .searchbar { display: flex; }
 .searchbar input { flex: 1; min-width: 0; min-height: 48px; font-size: 1.05rem; padding: 10px 44px 10px 12px; border-radius: 10px;
   border: 1px solid var(--line); background: var(--panel); color: var(--text); outline: none; }
@@ -55,15 +58,15 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .hit-snip { color: var(--muted); font-size: .9rem; margin-top: 4px; }
 
 /* bottom tabs */
-.tabs { position: fixed; bottom: 0; left: 0; right: 0; z-index: 6; display: flex; background: var(--panel);
+.tabs { flex: none; z-index: 6; display: flex; background: var(--panel);
   border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); }
-.tabs button { flex: 1; min-height: var(--tabs-h); background: none; border: 0; color: var(--muted); font-weight: 600; }
+.tabs button { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 6px 0 4px; font-size: .72rem; letter-spacing: .02em; min-width: 0; min-height: var(--tabs-h); -webkit-tap-highlight-color: transparent; background: none; border: 0; color: var(--muted); font-weight: 600; }
 .tabs button.on { color: var(--gold); }
 
 /* iPad / wide: list on the left, card on the right */
 .split { display: grid; grid-template-columns: minmax(320px, 40%) 1fr; gap: var(--gutter); align-items: start; }
 .pane { min-width: 0; }
-.card-pane { position: sticky; top: env(safe-area-inset-top, 0px); max-height: calc(100vh - var(--tabs-h) - 2 * var(--gutter) - env(safe-area-inset-bottom, 0px)); overflow-y: auto;
+.card-pane { position: sticky; top: 0; max-height: calc(100dvh - env(safe-area-inset-top, 0px) - var(--tabs-h) - 2 * var(--gutter) - env(safe-area-inset-bottom, 0px)); overflow-y: auto;
   border-left: 1px solid var(--line); padding-left: var(--gutter); }
 
 /* headings */
@@ -150,7 +153,7 @@ code { font-size: .85rem; color: var(--gold); }
 .tiers .small-btn { margin: 0 6px 0 0; }
 
 /* floating "Rules together" bar sits 8px above the tabs */
-.traybar { position: fixed; left: var(--gutter); right: var(--gutter); bottom: calc(var(--tabs-h) + 8px + env(safe-area-inset-bottom, 0px)); z-index: 7; display: flex; align-items: center; gap: 8px;
+.traybar { position: absolute; left: var(--gutter); right: var(--gutter); bottom: calc(var(--tabs-h) + 8px + env(safe-area-inset-bottom, 0px)); z-index: 7; display: flex; align-items: center; gap: 8px;
   min-height: 48px; padding: 0 16px; border-radius: 12px; border: 0; background: var(--gold); color: #111; font-weight: 700; box-shadow: 0 6px 20px rgba(0,0,0,.35); }
 .traybar .count { background: #111; color: var(--gold); border-radius: 12px; padding: 1px 9px; font-size: .85rem; }
 .traybar span:last-child { margin-left: auto; font-size: 1.4rem; }

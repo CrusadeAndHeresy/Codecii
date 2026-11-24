@@ -9,6 +9,7 @@ import type { ReactNode } from 'react';
 import { signOut } from './auth';
 import { getTheme, setTheme, type Theme } from './theme';
 import ArmyPane from './ArmyPane';
+import { scrollToTop } from './scroll';
 
 type Tab = 'search' | 'browse' | 'army' | 'import' | 'library';
 // Navigation: "r:<ruleId>", "e:<entityId>", "c:tray" (rules together from the tray), "c:<TrayRef>" (one item's rules together)
@@ -60,8 +61,8 @@ export default function App() {
     buildEditionIndex(db, editionId).then(setIndex);
   }, [editionId, version]);
 
-  const open = useCallback((nav: Nav) => { setStack((s) => [...s, nav]); if (!wide) window.scrollTo(0, 0); }, [wide]);
-  const openFresh = (nav: Nav) => { setStack([nav]); if (!wide) window.scrollTo(0, 0); };
+  const open = useCallback((nav: Nav) => { setStack((s) => [...s, nav]); if (!wide) scrollToTop(); }, [wide]);
+  const openFresh = (nav: Nav) => { setStack([nav]); if (!wide) scrollToTop(); };
   const back = () => setStack((s) => s.slice(0, -1));
   const current = stack[stack.length - 1];
   const edition = editions.find((e) => e.id === editionId);
@@ -98,7 +99,8 @@ export default function App() {
   const showDetail = !wide && current && (tab === 'search' || tab === 'browse' || tab === 'army');
 
   return (
-    <div className="app">
+    <div className="shell">
+    <div className="scroll"><div className="app">
       <header className="top">
         <h1 className="wordmark">Codecii</h1>
         <div className="top-row">
@@ -126,6 +128,8 @@ export default function App() {
           <div className="pane card-pane">{detail ?? <div className="empty">Pick a rule or unit to read it here.</div>}</div>
         </div>
       ) : showDetail ? detail : main}
+      {!edition && tab === 'search' && <div className="empty">Import a rules file to get started.</div>}
+    </div></div>
 
       {tray.length > 0 && current !== 'c:tray' && (
         <button className="traybar" onClick={() => { if (tab !== 'search' && tab !== 'browse' && tab !== 'army') setTab('search'); open('c:tray'); }}>
@@ -134,15 +138,23 @@ export default function App() {
       )}
       <nav className="tabs">
         {(['search', 'browse', 'army', 'import', 'library'] as Tab[]).map((t) => (
-          <button key={t} className={tab === t ? 'on' : ''} onClick={() => { setTab(t); if (!wide) setStack([]); }}>
-            {{ search: 'Search', browse: 'Browse', army: 'Army', import: 'Import', library: 'Library' }[t]}
+          <button key={t} className={tab === t ? 'on' : ''} aria-current={tab === t ? 'page' : undefined} onClick={() => { setTab(t); if (!wide) setStack([]); }}>
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{TAB_ICONS[t]}</svg>
+            <span>{{ search: 'Search', browse: 'Browse', army: 'Army', import: 'Import', library: 'Library' }[t]}</span>
           </button>
         ))}
       </nav>
-      {!edition && tab === 'search' && <div className="empty">Import a rules file to get started.</div>}
     </div>
   );
 }
+
+const TAB_ICONS: Record<Tab, JSX.Element> = {
+  search: <><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.2-4.2" /></>,
+  browse: <><path d="M4 5h16M4 12h16M4 19h16" /></>,
+  army: <><path d="M12 3 5 6v5c0 4.5 3 8 7 10 4-2 7-5.5 7-10V6z" /></>,
+  import: <><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14" /></>,
+  library: <><path d="M5 4h4v16H5zM11 4h4v16h-4zM17 6l3 .8-3.5 13.2-3-.8z" /></>,
+};
 
 interface NavProps { open: (n: Nav) => void; back?: () => void; inTray: (r: TrayRef) => boolean; toggleTray: (r: TrayRef) => void }
 
