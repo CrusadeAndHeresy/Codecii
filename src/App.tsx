@@ -9,7 +9,8 @@ import type { ReactNode } from 'react';
 import { signOut } from './auth';
 import { getTheme, setTheme, type Theme } from './theme';
 import ArmyPane from './ArmyPane';
-import { scrollToTop } from './scroll';
+import { RuleDrop as InlineRule } from './RuleDrops';
+import { scrollToTop, rememberScroll, restoreScroll } from './scroll';
 
 type Tab = 'army' | 'search' | 'library' | 'about';
 // Navigation: "r:<ruleId>", "e:<entityId>", "c:tray" (rules together from the tray), "c:<TrayRef>" (one item's rules together)
@@ -22,7 +23,7 @@ const pref = {
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('army');
-  const [cat, setCat] = useState<string>();
+  const [openCats, setOpenCats] = useState<string[]>([]);
   const [menu, setMenu] = useState(false);
   const [systems, setSystems] = useState<GameSystem[]>([]);
   const [editions, setEditions] = useState<Edition[]>([]);
@@ -63,9 +64,9 @@ export default function App() {
     buildEditionIndex(db, editionId).then(setIndex);
   }, [editionId, version]);
 
-  const open = useCallback((nav: Nav) => { setStack((s) => [...s, nav]); if (!wide) scrollToTop(); }, [wide]);
-  const openFresh = (nav: Nav) => { setStack([nav]); if (!wide) scrollToTop(); };
-  const back = () => setStack((s) => s.slice(0, -1));
+  const open = useCallback((nav: Nav) => { if (!wide) { rememberScroll(); scrollToTop(); } setStack((s) => [...s, nav]); }, [wide]);
+  const openFresh = (nav: Nav) => { if (!wide) { rememberScroll(); scrollToTop(); } setStack([nav]); };
+  const back = () => { setStack((s) => s.slice(0, -1)); restoreScroll(); };
   const current = stack[stack.length - 1];
   const edition = editions.find((e) => e.id === editionId);
   const inTray = (ref: TrayRef) => tray.includes(ref);
@@ -93,8 +94,8 @@ export default function App() {
     <>
       {tab === 'army' && <ArmyPane index={index} editionId={editionId} open={open} />}
       {tab === 'search' && (
-        <SearchPane index={index} editionId={editionId} version={version} onOpen={openFresh} selected={current} cat={cat} setCat={setCat}
-          bookId={bookId} books={hasBooks ? index!.books : []} setBook={(b) => { setBookPick(b); setCat(undefined); setStack([]); }} />
+        <SearchPane index={index} editionId={editionId} version={version} onOpen={openFresh} selected={current} openCats={openCats} setOpenCats={setOpenCats}
+          bookId={bookId} books={hasBooks ? index!.books : []} setBook={(b) => { setBookPick(b); setOpenCats([]); setStack([]); }} />
       )}
       {tab === 'library' && <LibraryPane onChange={bump} version={version} onDone={(edId) => { setEditionId(edId); bump(); }} onErased={() => { setTray([]); setStack([]); bump(); }} />}
       {tab === 'about' && <AboutPane onErased={() => { setTray([]); setStack([]); bump(); }} />}
@@ -181,9 +182,9 @@ const KIND_FILTERS: { label: string; kinds?: HitKind[]; scope?: Scope }[] = [
   { label: 'Wargear', kinds: ['weapon', 'wargear', 'other'] },
 ];
 
-function SearchPane({ index, editionId, version, bookId, books, setBook, onOpen, selected, cat, setCat }: {
+function SearchPane({ index, editionId, version, bookId, books, setBook, onOpen, selected, openCats, setOpenCats }: {
   index?: EditionIndex; editionId?: string; version: number; bookId?: string; books: EditionIndex['books']; setBook: (id?: string) => void;
-  onOpen: (n: Nav) => void; selected?: string; cat?: string; setCat: (c?: string) => void;
+  onOpen: (n: Nav) => void; selected?: string; openCats: string[]; setOpenCats: (c: string[]) => void;
 }) {
   const [q, setQ] = useState(() => pref.get('q') ?? '');
   const [filter, setFilter] = useState(0);
@@ -211,7 +212,7 @@ function SearchPane({ index, editionId, version, bookId, books, setBook, onOpen,
               {books.map((b) => <option key={b.id} value={b.id}>{b.title}{b.version ? ` v${b.version}` : ''}</option>)}
             </select>
           )}
-          <select aria-label="Show" value={filter} onChange={(e) => { setFilter(+e.target.value); setCat(undefined); }}>
+          <select aria-label="Show" value={filter} onChange={(e) => setFilter(+e.target.value)}>
             {KIND_FILTERS.map((f, i) => <option key={f.label} value={i}>{i === 0 ? 'Everything' : f.label}</option>)}
           </select>
         </div>
@@ -222,7 +223,7 @@ function SearchPane({ index, editionId, version, bookId, books, setBook, onOpen,
           <ul className="results">{hits.map((h) => <HitRow key={h.ref} h={h} showBook={!bookId} onOpen={onOpen} on={h.ref === selected} />)}</ul>
         </>
       ) : (
-        <BrowsePane index={index} bookId={bookId} editionId={editionId} version={version} onOpen={onOpen} cat={cat} setCat={setCat} filter={KIND_FILTERS[filter].label} />
+        <BrowsePane index={index} bookId={bookId} editionId={editionId} version={version} onOpen={onOpen} openCats={openCats} setOpenCats={setOpenCats} filter={KIND_FILTERS[filter].label} />
       )}
     </div>
   );
@@ -235,7 +236,7 @@ function HitRow({ h, showBook, onOpen, on }: { h: Hit; showBook: boolean; onOpen
     <li>
       <button className={`hit ${on ? 'on' : ''}`} onClick={() => onOpen(h.ref)}>
         <span className="hit-name">{h.name}{h.faction && <span className="badge faction">{h.faction}</span>}</span>
-        <span className="hit-meta">{[h.kind === 'rule' ? `${h.category} · ${h.tier === 'expanded' ? 'Expanded' : 'Core'}` : `${KIND_LABEL[h.kind]} · ${h.category}`, showBook && h.book, h.page && `p.${h.page}`].filter(Boolean).join(' · ')}</span>
+        <span className="hit-meta">{[h.kind === 'rule' ? h.category : `${KIND_LABEL[h.kind]} · ${h.category}`, showBook && h.book, h.page && `p.${h.page}`].filter(Boolean).join(' · ')}</span>
         {h.snippet && <span className="hit-snip">{h.snippet}</span>}
       </button>
     </li>
@@ -251,7 +252,11 @@ function ListRow({ name, meta, faction, onClick }: { name: string; meta?: string
   );
 }
 
-function BrowsePane({ index, bookId, editionId, version, onOpen, cat, setCat, filter }: { index?: EditionIndex; bookId?: string; editionId?: string; version: number; onOpen: (n: Nav) => void; cat?: string; setCat: (c?: string) => void; filter: string }) {
+// Every category is a dropdown that opens in place, so the page keeps its shape; rules open in place too.
+function BrowsePane({ index, bookId, editionId, version, onOpen, openCats, setOpenCats, filter }: {
+  index?: EditionIndex; bookId?: string; editionId?: string; version: number; onOpen: (n: Nav) => void;
+  openCats: string[]; setOpenCats: (c: string[]) => void; filter: string;
+}) {
   const [entities, setEntities] = useState<Entity[]>([]);
   useEffect(() => { if (editionId) db.entities.where('editionId').equals(editionId).toArray().then(setEntities); }, [editionId, version]);
   if (!index) return null;
@@ -267,36 +272,41 @@ function BrowsePane({ index, bookId, editionId, version, onOpen, cat, setCat, fi
     const k = g.key.startsWith('e:') ? ({ 'e:unit': 'Units', 'e:weapon': 'Wargear', 'e:wargear': 'Wargear' } as Record<string, string>)[g.key] : MISSION_CATS.includes(g.key.slice(2)) ? 'Missions' : DETACHMENT_CATS.includes(g.key.slice(2)) ? 'Detachments' : 'Rules';
     return k === filter;
   });
+  const ruleRow = (r: Rule) => <InlineRule key={r.id} index={index} open={onOpen} item={{ ruleId: r.id, name: r.name, faction: r.faction, tag: [r.phase && r.phase !== 'Any' ? r.phase : '', pageIn(r.id) ? `p.${pageIn(r.id)}` : ''].filter(Boolean).join(' · ') || undefined }} />;
 
-  if (!cat) return (
-    <ul className="results">{groups.map((g) => <ListRow key={g.key} name={g.label} meta={`${g.count}`} onClick={() => setCat(g.key)} />)}</ul>
-  );
-  const label = groups.find((g) => g.key === cat)?.label ?? '';
-  let body: JSX.Element;
-  if (cat.startsWith('e:')) {
-    const list = bookEntities.filter((e) => e.type === cat.slice(2)).sort((a, b) => (a.faction ?? '').localeCompare(b.faction ?? '') || a.name.localeCompare(b.name));
-    body = <ul className="results">{list.map((e) => (
-      <ListRow key={e.id} name={e.name} faction={e.faction} meta={[e.unitType && `${e.unitType}${e.subTypes.length ? ` (${e.subTypes.join(', ')})` : ''}`, e.role, pageIn(e.id) && `p.${pageIn(e.id)}`].filter(Boolean).join(' · ')} onClick={() => onOpen('e:' + e.id)} />
-    ))}</ul>;
-  } else {
-    const rules = all.filter((r) => r.category === cat.slice(2));
-    const bookOrder = rules.some((r) => r.section);
-    if (bookOrder) {
+  const body = (key: string): JSX.Element => {
+    if (key.startsWith('e:')) {
+      const list = bookEntities.filter((e) => e.type === key.slice(2)).sort((a, b) => (a.faction ?? '').localeCompare(b.faction ?? '') || a.name.localeCompare(b.name));
+      return <ul className="results">{list.map((e) => (
+        <ListRow key={e.id} name={e.name} faction={e.faction} meta={[e.unitType && `${e.unitType}${e.subTypes.length ? ` (${e.subTypes.join(', ')})` : ''}`, e.role, pageIn(e.id) && `p.${pageIn(e.id)}`].filter(Boolean).join(' · ')} onClick={() => onOpen('e:' + e.id)} />
+      ))}</ul>;
+    }
+    const rules = all.filter((r) => r.category === key.slice(2));
+    if (rules.some((r) => r.section)) {
       // Core rules read in book order, grouped by section.
       const pg = (r: Rule) => parseFloat(r.section ? (index.pages.get(r.id) ?? '') : '') || 9999;
       rules.sort((a, b) => (a.section ? 0 : 1) - (b.section ? 0 : 1) || pg(a) - pg(b));
       const sections = new Map<string, Rule[]>();
       rules.forEach((r) => sections.set(r.section ?? 'Other', [...(sections.get(r.section ?? 'Other') ?? []), r]));
-      body = <>{[...sections.entries()].map(([sec, rs]) => (
-        <div key={sec}><h3 className="pad section-h">{sec}</h3><ul className="results">
-          {rs.map((r) => <ListRow key={r.id} name={r.name} meta={[r.phase, index.tiers.get(r.id) === 'expanded' ? 'Expanded' : 'Core', pageIn(r.id) && `p.${pageIn(r.id)}`].filter((x) => x && x !== 'Any').join(' · ')} onClick={() => onOpen('r:' + r.id)} />)}
-        </ul></div>
-      ))}</>;
-    } else {
-      body = <ul className="results">{rules.sort((a, b) => a.name.localeCompare(b.name)).map((r) => <ListRow key={r.id} name={r.name} faction={r.faction} meta={[r.phase, index.tiers.get(r.id) === 'expanded' ? 'Expanded' : 'Core', pageIn(r.id) && `p.${pageIn(r.id)}`].filter((x) => x && x !== 'Any').join(' · ')} onClick={() => onOpen('r:' + r.id)} />)}</ul>;
+      return <>{[...sections.entries()].map(([sec, rs]) => <div key={sec}><h3 className="pad section-h">{sec}</h3>{rs.map(ruleRow)}</div>)}</>;
     }
-  }
-  return <div><button className="back" onClick={() => setCat(undefined)}>‹ All</button><h2 className="pad">{label}</h2>{body}</div>;
+    return <>{rules.sort((a, b) => a.name.localeCompare(b.name)).map(ruleRow)}</>;
+  };
+
+  return (
+    <div className="cats">
+      {groups.map((g) => {
+        const isOpen = openCats.includes(g.key);
+        return (
+          <details key={g.key} className="dd cat-dd" open={isOpen}
+            onToggle={(e) => { const o = (e.currentTarget as HTMLDetailsElement).open; if (o !== isOpen) setOpenCats(o ? [...openCats, g.key] : openCats.filter((k) => k !== g.key)); }}>
+            <summary><span>{g.label}</span><span className="tag">{g.count}</span></summary>
+            <div className="ddbody">{isOpen && body(g.key)}</div>
+          </details>
+        );
+      })}
+    </div>
+  );
 }
 
 const STATUS = { verified: '✓ Checked by you', 'ai-checked': 'AI double-checked', unverified: 'Not yet checked' };

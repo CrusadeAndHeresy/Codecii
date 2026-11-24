@@ -228,6 +228,16 @@ export function parseGear(details: string[], unitName: string, look: GearLookup,
   return out;
 }
 
+// Gear already stored from an older reading: split "mixed weapons ( a , b )" into its weapons and drop a stray "Legion".
+export function normalizeGear(gear: ArmyGear[], look: GearLookup): ArmyGear[] {
+  return gear.flatMap((g) => {
+    if (g.kind !== 'text') return [g];
+    if (/^legion$/i.test(g.name.trim())) return [];
+    if (/^(?:mixed|assorted|various)\s+(?:weapons?|wargear|equipment)\s*\(/i.test(g.name)) return parseGear([g.name], '', look).map((x) => ({ ...x, forModel: x.forModel ?? g.forModel }));
+    return [g];
+  });
+}
+
 // ---------- Building an army from a reading ----------
 
 export interface ReadUnit { slot?: string; legion?: string; name: string; models: number; countSrc?: string; pts?: number; details?: string[] }

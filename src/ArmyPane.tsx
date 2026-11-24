@@ -126,8 +126,8 @@ function ArmyPage({ army, ents, index, open, edit, setEdit, onBack, onSave, onDe
       {unsure > 0 && <div className="note">{unsure} unit{unsure === 1 ? ' needs' : 's need'} a quick check. Each one has a “Check this match” box: confirm it, or pick the right unit.</div>}
       <div className="bgrid">
         <button className={`small-btn${edit ? ' on' : ''}`} onClick={() => setEdit(!edit)}>{edit ? 'Done' : 'Edit'}</button>
-        <button className="small-btn" onClick={() => setFold((f) => ({ n: f.n + 1, folded: true }))}>Fold all</button>
-        <button className="small-btn" onClick={() => setFold((f) => ({ n: f.n + 1, folded: false }))}>Unfold all</button>
+        <button className="small-btn" onClick={() => setFold((f) => ({ n: f.n + 1, folded: true }))}>Hide all</button>
+        <button className="small-btn" onClick={() => setFold((f) => ({ n: f.n + 1, folded: false }))}>Show all</button>
       </div>
       {edit && <div className="bgrid"><button className="small-btn danger" onClick={onDelete}>Delete army</button></div>}
       {groups.map((g) => (
@@ -150,7 +150,7 @@ function UnitCard({ unit, entity, look, index, open, edit, fold, onChange }: {
   fold: { n: number; folded: boolean }; onChange: (u: ArmyUnit | null) => void;
 }) {
   const [model, setModel] = useState<UnitCardModel>();
-  const [folded, setFolded] = useState(false);
+  const [folded, setFolded] = useState(true);
   useEffect(() => { if (fold.n) setFolded(fold.folded); }, [fold]);
   // Rebuilt whenever the unit, its match or any wargear changes.
   const key = JSON.stringify([unit.entityId, unit.listName, unit.copies.map((c) => [c.models, c.gear])]);

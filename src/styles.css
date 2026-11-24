@@ -231,7 +231,7 @@ button.link.inline { min-height: 0; padding: 4px 0; }
 
 /* Army card: sections of dropdowns that open in place */
 .uline { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.small-btn.fold { min-height: 36px; padding: 2px 12px; color: var(--muted); }
+.small-btn.fold { min-height: 44px; min-width: 84px; padding: 8px 14px; font-weight: 600; flex: none; }
 .ucard .dgroup { margin: 14px 0 6px; }
 .ucard .dlabel { font-weight: 700; color: var(--gold); font-size: 12px; margin-bottom: 6px; }
 .tag { font-size: .75rem; font-weight: 500; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 1px 8px; }

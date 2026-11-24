@@ -5,7 +5,7 @@ import { LibraryDB } from './db';
 import { planImport } from './importer';
 import { applyImport } from './store';
 import { buildEditionIndex } from './search';
-import { buildArmy, canonRole, groupByRole, makeLookup, matchUnit, nameScore, parseGear, unitModels, unitPoints, SURE, type ArmyUnit } from './army';
+import { normalizeGear, buildArmy, canonRole, groupByRole, makeLookup, matchUnit, nameScore, parseGear, unitModels, unitPoints, SURE, type ArmyUnit } from './army';
 import { joinOverlap, readArmyText } from './armyRead';
 import { buildCombo } from './views';
 
@@ -42,6 +42,14 @@ describe('option wording', () => {
     const look = { gear: () => undefined, rule: () => undefined };
     const g = parseGear(['mixed weapons ( chainsword , chainaxe ), Legion, power weapon'], 'Inductii Squad', look as never);
     expect(g.map((x) => x.name)).toEqual(['chainsword', 'chainaxe', 'power weapon']);
+  });
+});
+
+describe('stored gear tidy-up', () => {
+  it('splits an old "mixed weapons" entry and drops a bare "Legion"', () => {
+    const look = { gear: () => undefined, rule: () => undefined };
+    const out = normalizeGear([{ name: 'mixed weapons ( chainsword , chainaxe )', kind: 'text' }, { name: 'Legion', kind: 'text' }, { name: 'Vexilla', kind: 'weapon', entityId: 'x' }], look as never);
+    expect(out.map((g) => g.name)).toEqual(['chainsword', 'chainaxe', 'Vexilla']);
   });
 });
 
