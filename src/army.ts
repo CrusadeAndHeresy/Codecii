@@ -190,7 +190,7 @@ export function parseGear(details: string[], unitName: string, look: GearLookup,
       if (im) { label = pretty(im[1]); item = item.trim().slice(im[0].length); }
       item = item.trim().replace(/^\[(.+)\]$/, '$1').replace(/^(?:infantry|cavalry|vehicle|walker|automata|monstrous creature|bike|jetbike|jump infantry)\s*\([^)]*\)\s+(?=\S)/i, '');
       item = item.replace(/\(\s*\+?\s*\d+\s*(?:pts?|points?)\s*\)|\+\s*\d+\s*(?:pts?|points?)/gi, '').replace(/\s+/g, ' ').trim();
-      if (!item || !/[A-Za-z]/.test(item) || /^prime unit$/i.test(item)) continue;   // "Prime Unit" only marks the unit as a Prime unit
+      if (!item || !/[A-Za-z]/.test(item)) continue;
       let model = forModel;
       const pm = !label && !forModel ? /^([^:]{2,40}):\s*(.+)$/.exec(item) : null;   // "5 Scouts, Scout Sergeant: melta bombs"
       if (pm) { model = pm[1].trim(); item = pm[2].trim(); }

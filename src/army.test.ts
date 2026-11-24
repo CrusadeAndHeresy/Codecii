@@ -18,6 +18,14 @@ describe('New Recruit table lists', () => {
   });
 });
 
+describe('prime unit', () => {
+  it('links "Prime Unit" to the Prime Slots rule through its alias', () => {
+    const rule = { id: 'r1', name: 'Prime Slots', aliases: ['Prime Unit'] } as any;
+    const g = parseGear(['Prime Unit'], 'Tactical Squad', makeLookup([], [rule]));
+    expect(g[0]).toMatchObject({ kind: 'rule', ruleId: 'r1' });
+  });
+});
+
 describe('gear aliases', () => {
   it('resolves a generic name through an entity alias', () => {
     const e = (name: string, aliases?: string[]) => ({ id: name, name, aliases, type: 'weapon' } as any);
