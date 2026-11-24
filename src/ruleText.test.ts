@@ -19,3 +19,16 @@ describe('splitIntro', () => {
     expect(splitIntro('x', 'Only one paragraph here.').intro).toHaveLength(0);
   });
 });
+
+describe('splitIntro, same-paragraph and multi-paragraph background', () => {
+  it('strips two leading background paragraphs before the matched rule', () => {
+    const full = 'Each Legion maintains the military tradition of the battle standard, carried into war as a symbol of honour.\n\nLegion standards are borne by the most trusted warriors of the host in every campaign.\n\nA Model with this Special Rule adds +1 to the Combat Resolution Points of its unit.';
+    const r = splitIntro('A Model with this Special Rule adds +1 to the Combat Resolution Points of its unit.', full);
+    expect(r.body).toEqual([full.split('\n\n')[2]]);
+    expect(r.intro.length).toBe(2);
+  });
+  it('keeps everything when the first paragraph is a real rule', () => {
+    const full = 'A Model with this Special Rule may re-roll 1 failed Armour Save per Phase.\n\nThis cannot be combined with other re-rolls.';
+    expect(splitIntro('May re-roll one failed Armour Save per Phase.', full).intro).toEqual([]);
+  });
+});
