@@ -100,8 +100,27 @@ export function nameScore(a: string, b: string): number {
 export interface UnitMatch { entity?: Entity; score: number; candidates: { entity: Entity; score: number }[] }
 
 // Best library unit for a name from a list. Same-name units from different factions are all candidates.
+// Typos and shortenings: "Champiom" for Champion, "Ass Squad" for Assault Squad. Never above SURE, so the player is always asked.
+const lev = (a: string, b: string) => {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[a.length][b.length];
+};
+const GENERIC_TOKENS = new Set(['squad', 'unit', 'team', 'section']);
+const closeToken = (x: string, y: string) => x === y
+  || (Math.min(x.length, y.length) >= 3 && x.length !== y.length && (x.startsWith(y) || y.startsWith(x)) && Math.min(x.length, y.length) >= Math.max(x.length, y.length) * 0.4)
+  || (Math.min(x.length, y.length) >= 5 && lev(x, y) <= (Math.max(x.length, y.length) >= 8 ? 2 : 1));
+export function fuzzyScore(a: string, b: string): number {
+  const ta = tokens(a), tb = tokens(b);
+  if (!ta.length || !tb.length) return 0;
+  let hit = 0, distinctive = 0;
+  for (const x of ta) { const y = tb.find((t) => closeToken(x, t)); if (y) { hit++; if (!GENERIC_TOKENS.has(x)) distinctive++; } }
+  if (!distinctive) return 0;     // "Tax Squad" shares only "squad" with every squad: not a match
+  return Math.min(0.8, Math.round((0.6 * (hit / Math.max(ta.length, tb.length)) + 0.4 * (hit / Math.min(ta.length, tb.length))) * 100) / 100);
+}
 export function matchUnit(name: string, units: Entity[]): UnitMatch {
-  const scored = units.map((entity) => ({ entity, score: nameScore(name, entity.name) }))
+  const scored = units.map((entity) => ({ entity, score: Math.max(nameScore(name, entity.name), fuzzyScore(name, entity.name)) }))
     .filter((c) => c.score >= 0.4)
     .sort((a, b) => b.score - a.score || (a.entity.faction ? 1 : 0) - (b.entity.faction ? 1 : 0) || a.entity.name.localeCompare(b.entity.name));
   return { entity: scored[0]?.entity, score: scored[0]?.score ?? 0, candidates: scored.slice(0, 6) };

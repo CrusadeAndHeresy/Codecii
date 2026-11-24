@@ -289,6 +289,27 @@ function read(rawLines,opts={}){
     const gp=/^(.*?)\s*\|\s*(.+)$/.exec(group||'');
     out.push({slot:gp?gp[1]:(group||'Units'),legion:gp?gp[2]:undefined,name:nm.trim(),models:cnt?Math.max(1,cnt.n):1,src:group?'listed':'inferred',countSrc:cnt?'listed':'guessed',pts:e.pts,details:e.details.map(d=>d.t)});
   }
+  /* a list of bare names with no points at all ("Praetor / Tactical Squad / Gun Bunnies"): every line is a unit,
+     "Heading:" lines and ++ headings are slots, bulleted lines belong to the unit above. Nothing can be checked against a total. */
+  if(!out.length){
+    const names=L.filter(l=>!l.skip||l===L[0]);
+    const short=names.filter(l=>l.text.split(/\s+/).length<=8);
+    if(names.length>=2&&short.length>=names.length*0.6&&!names.some(l=>statRow(l.text))){
+      let slot=null,last=null;const u=[];
+      for(const l of names){
+        const t=l.text.replace(/[\s:]+$/,'').trim();
+        if(l.boxed||/:\s*$/.test(l.text)){slot=t;continue}
+        if(l.bullet&&last){last.details.push(t);continue}
+        let nm=t,n=null,m;
+        if((m=/^(\d+)\s*[×x]?\s+(.+)$/i.exec(nm))){n=+m[1];nm=m[2]}else if((m=/^(.+?)\s*[×x]\s*(\d+)$/i.exec(nm))){n=+m[2];nm=m[1]}
+        last={slot:slot||'Units',name:nm,models:n||1,src:slot?'listed':'inferred',countSrc:n?'listed':'guessed',details:[]};u.push(last);
+      }
+      if(u.length){
+        notes.length=0;notes.push('No points in this list: each line is read as a unit');
+        return {name:opts.fallbackName||'Imported list',system:opts.system||detectSystem(names.slice(0,6).map(l=>l.text).join(' ')+' '+(opts.hint||'')),units:u,check:{total:null,sum:null,matched:false,notes}};
+      }
+    }
+  }
   const sys=opts.system||detectSystem(L.slice(0,6).map(l=>l.text).join(' ')+' '+(opts.hint||''));
   return {name,system:sys,units:out,check:{total,sum,matched:total!=null&&sum===total,notes},...(opts.debug?{debug:E}:{})};
 }

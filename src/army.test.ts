@@ -159,3 +159,18 @@ describe('hand-written list with bracketed costs (Google Docs, read from a pictu
     expect(r.units[2].details).toEqual(['Vexilla', 'Nuncio-vox', 'Sergeant: Power axe', 'Prime Advantage: Combat Veterans']);
   });
 });
+
+describe('a list of bare unit names with no points', () => {
+  it('reads every line as a unit and only suggests typo matches, never confirms them', async () => {
+    const { ListReader } = await import('./listReader');
+    const { matchUnit, SURE } = await import('./army');
+    const r: any = ListReader.readText(fs.readFileSync(new URL('./testdata/bare-names.txt', import.meta.url), 'utf8'));
+    expect(r.units.map((u: any) => u.name)).toEqual(['Praetor', 'Champiom', 'Master of Decant', 'Ass Squad', 'Ass Squad', 'Tax Squad', 'Spoiler Squad', 'Gun Bunnies', 'Tactimooks']);
+    const lib = ['Champion', 'Assault Squad', 'Tactical Squad', 'Command Squad'].map((name) => ({ id: name, name } as any));
+    const typo = matchUnit('Champiom', lib);
+    expect(typo.entity?.name).toBe('Champion');
+    expect(typo.score).toBeLessThan(SURE);
+    expect(matchUnit('Ass Squad', lib).entity?.name).toBe('Assault Squad');
+    expect(matchUnit('Tax Squad', lib).candidates.every((c) => c.score < SURE)).toBe(true);
+  });
+});
