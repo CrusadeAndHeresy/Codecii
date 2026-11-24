@@ -226,6 +226,10 @@ async function resolveTaken(
     const r = await ruleItem(db, { ruleId }, faction, cache, g.name);
     if (!r.missing) return { key: `${gi}:r:${r.ruleId}`, name: r.name, rule: r, lines: [], children: [], ...base };
   }
+  if (/^power weapons?$/i.test(g.name.trim())) {
+    return { key: `${gi}:t:${g.name}`, name: g.name, lines: [], children: [], ...base, tag: 'which one?',
+      note: 'The list only says “power weapon”. Tap Edit, then ⇄ on it, to pick the exact one (axe, sword, maul, lance…).' };
+  }
   const line = selectedVia.get(gi);
   const hint = hints.find((h) => sameName(h.name, g.name));
   if (line !== undefined) return { key: `${gi}:t:${g.name}`, name: g.name, lines: [], children: [], ...base, note: `This is the “${lineLabels.get(line) ?? 'profile'}” profile shown above.` };
@@ -274,7 +278,6 @@ export async function buildUnitCard(db: LibraryDB, unit: ArmyUnit, entity: Entit
     wargear = mergeGear(parts.map((x) => x.w), labels);
     if (!lines.some((l) => l.stats.length)) notes.push('No profile is printed for this entry in your library.');
   } else {
-    notes.push('This unit is not matched to your library yet. Tap Edit, then “Change this unit”.');
   }
 
   // Options taken, per copy. Anything the unit already carries as standard is in "Wargear", not repeated here.

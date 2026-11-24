@@ -37,6 +37,14 @@ describe('gear aliases', () => {
   });
 });
 
+describe('option wording', () => {
+  it('lists the weapons inside "mixed weapons ( a , b )" and drops a stray "Legion"', () => {
+    const look = { gear: () => undefined, rule: () => undefined };
+    const g = parseGear(['mixed weapons ( chainsword , chainaxe ), Legion, power weapon'], 'Inductii Squad', look as never);
+    expect(g.map((x) => x.name)).toEqual(['chainsword', 'chainaxe', 'power weapon']);
+  });
+});
+
 describe('roles and names', () => {
   it('reads a role from a list heading, and ignores detachment names', () => {
     expect(canonRole('HQ')).toBe('Command');

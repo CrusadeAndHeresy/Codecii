@@ -135,6 +135,14 @@ export default function App() {
           {counts && <span className="muted small">{counts.rules} rules · {counts.entities} units/gear</span>}
         </div>
       </header>
+      <nav className="bgrid topnav" aria-label="Main">
+        {(['army', 'search'] as const).map((t) => (
+          <button key={t} className={`navbtn${tab === t ? ' on' : ''}`} aria-current={tab === t ? 'page' : undefined} onClick={() => { setTab(t); if (!wide) setStack([]); }}>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{TAB_ICONS[t]}</svg>
+            <span>{{ search: 'Search', army: 'Army' }[t]}</span>
+          </button>
+        ))}
+      </nav>
 
       {wide && onRules ? (
         <div className="split">
@@ -150,14 +158,6 @@ export default function App() {
           <span>Rules together</span><span className="count">{tray.length}</span><span>›</span>
         </button>
       )}
-      <nav className="tabs">
-        {(['army', 'search'] as const).map((t) => (
-          <button key={t} className={tab === t ? 'on' : ''} aria-current={tab === t ? 'page' : undefined} onClick={() => { setTab(t); if (!wide) setStack([]); }}>
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{TAB_ICONS[t]}</svg>
-            <span>{{ search: 'Search', army: 'Army' }[t]}</span>
-          </button>
-        ))}
-      </nav>
     </div>
   );
 }

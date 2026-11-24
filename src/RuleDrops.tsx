@@ -144,6 +144,9 @@ export function RuleSection({ label, items, index, open, none = 'None listed for
 export function GearDrop({ g, index, open }: { g: GearItem } & Ctx) {
   const [opened, setOpened] = useState(false);
   const body = g.lines.some((l) => l.stats.length || l.rules.length) || g.children.length > 0;
+  // Wargear that is nothing but one rule ("Nuncio-vox"): open the rule itself, not a dropdown inside the dropdown.
+  const allRules = g.lines.flatMap((l) => l.rules);
+  const solo = !g.rule && allRules.length === 1 && g.lines.every((l) => l.stats.length === 0) && g.children.length === 0 && !allRules[0].missing ? allRules[0] : undefined;
   return (
     <details className="dd gear-dd" onToggle={(e) => { if ((e.currentTarget as HTMLDetailsElement).open) setOpened(true); }}>
       <summary>
@@ -156,7 +159,8 @@ export function GearDrop({ g, index, open }: { g: GearItem } & Ctx) {
         {g.matched && <p className="muted small">Matched to “{g.matched}” in your library.</p>}
         {g.note && <p className="muted small">{g.note}</p>}
         {g.rule && opened && <RuleBody ruleId={g.rule.ruleId} index={index} open={open} />}
-        {!g.rule && g.lines.map((l, i) => (
+        {solo && opened && <RuleBody ruleId={solo.ruleId} index={index} open={open} />}
+        {!g.rule && !solo && g.lines.map((l, i) => (
           <div className="gline" key={i}>
             {l.label && (g.lines.length > 1 || !sameName(l.label, g.name)) && <div className="muted small">{l.label}</div>}
             <StatLine stats={l.stats} />
@@ -170,7 +174,7 @@ export function GearDrop({ g, index, open }: { g: GearItem } & Ctx) {
           </div>
         )}
         {!g.rule && !g.missing && !g.note && !body && <p className="muted small">The library has no profile or rules for this item.</p>}
-        {g.entityId && <button className="link inline" onClick={() => open('e:' + g.entityId)}>Open {g.name} ›</button>}
+        {g.entityId && !solo && <button className="link inline" onClick={() => open('e:' + g.entityId)}>Open {g.name} ›</button>}
       </div>
     </details>
   );

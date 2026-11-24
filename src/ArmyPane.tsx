@@ -123,13 +123,13 @@ function ArmyPage({ army, ents, index, open, edit, setEdit, onBack, onSave, onDe
         {army.units.length} unit{army.units.length === 1 ? '' : 's'} · {total} pts{army.total != null && army.total !== total ? ` (list says ${army.total})` : ''}
       </div>
       {army.notes.map((n, i) => <div className="note" key={i}>{n}</div>)}
-      {unsure > 0 && <div className="note">{unsure} unit{unsure === 1 ? ' needs' : 's need'} a quick check: tap Edit to confirm which library unit it is.</div>}
-      <div className="row-btns">
+      {unsure > 0 && <div className="note">{unsure} unit{unsure === 1 ? ' needs' : 's need'} a quick check. Each one has a “Check this match” box: confirm it, or pick the right unit.</div>}
+      <div className="bgrid">
         <button className={`small-btn${edit ? ' on' : ''}`} onClick={() => setEdit(!edit)}>{edit ? 'Done' : 'Edit'}</button>
         <button className="small-btn" onClick={() => setFold((f) => ({ n: f.n + 1, folded: true }))}>Fold all</button>
         <button className="small-btn" onClick={() => setFold((f) => ({ n: f.n + 1, folded: false }))}>Unfold all</button>
-        {edit && <button className="small-btn danger" onClick={onDelete}>Delete army</button>}
       </div>
+      {edit && <div className="bgrid"><button className="small-btn danger" onClick={onDelete}>Delete army</button></div>}
       {groups.map((g) => (
         <section key={g.role}>
           <h3 className="rolehead">{g.role}<span>{g.units.length} · {g.pts} pts</span></h3>
@@ -186,6 +186,8 @@ function UnitCard({ unit, entity, look, index, open, edit, fold, onChange }: {
         </div>
         {entity && name.toLowerCase() !== unit.listName.toLowerCase() && <div className="muted small">Listed as “{unit.listName}”</div>}
       </div>
+
+      {unsure && <MatchCheck unit={unit} entity={entity} index={index} onChange={onChange} />}
 
       {!model ? <div className="muted small">Loading…</div> : (
         <>
@@ -269,6 +271,26 @@ function UnitCard({ unit, entity, look, index, open, edit, fold, onChange }: {
         </details>
       )}
     </article>
+  );
+}
+
+// "Is this the right unit?" in one glance: what the list says, what it was matched to, and a yes or a different pick.
+function MatchCheck({ unit, entity, index, onChange }: { unit: ArmyUnit; entity?: Entity; index: EditionIndex; onChange: (u: ArmyUnit | null) => void }) {
+  const [picking, setPicking] = useState(false);
+  return (
+    <div className="matchcheck">
+      <div className="dlabel">Check this match</div>
+      <div className="mc-line"><span>Your list says</span><b>{unit.listName}</b></div>
+      {entity
+        ? <div className="mc-line"><span>Matched to</span><b>{entity.name}{entity.faction ? ` · ${entity.faction}` : ''}</b></div>
+        : <p className="muted small">No unit in your library has this name.</p>}
+      {entity && <p className="muted small">Check the stats and rules below look like the unit you took.</p>}
+      <div className="bgrid">
+        {entity && <button className="small-btn ok" onClick={() => onChange({ ...unit, matchScore: 1 })}>✓ That’s right</button>}
+        <button className="small-btn" onClick={() => setPicking(!picking)}>{picking ? 'Cancel' : entity ? 'Pick another' : 'Pick the unit'}</button>
+      </div>
+      {picking && <Picker index={index} kinds={['unit']} placeholder="Search units…" onPick={(h) => onChange({ ...unit, entityId: h.id, matchScore: 1 })} />}
+    </div>
   );
 }
 

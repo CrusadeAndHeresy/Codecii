@@ -26,7 +26,7 @@ html, body { height: 100%; overflow: hidden; overscroll-behavior: none; backgrou
 button, input, select, textarea { font: inherit; color: inherit; }
 
 /* page column */
-.app { max-width: 640px; margin: 0 auto; padding: var(--gutter) var(--gutter) 96px; }
+.app { max-width: 640px; margin: 0 auto; padding: var(--gutter) var(--gutter) calc(96px + env(safe-area-inset-bottom, 0px)); }
 @media (min-width: 900px) { .app { max-width: none; } }
 
 .top { display: flex; flex-direction: column; gap: 8px; margin: 0 0 12px; }
@@ -57,16 +57,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .hit-meta { color: var(--muted); font-size: .9rem; }
 .hit-snip { color: var(--muted); font-size: .9rem; margin-top: 4px; }
 
-/* bottom tabs */
-.tabs { flex: none; z-index: 6; display: flex; background: var(--panel);
-  border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); }
-.tabs button { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 6px 0 4px; font-size: .72rem; letter-spacing: .02em; min-width: 0; min-height: var(--tabs-h); -webkit-tap-highlight-color: transparent; background: none; border: 0; color: var(--muted); font-weight: 600; }
-.tabs button.on { color: var(--gold); }
 
 /* iPad / wide: list on the left, card on the right */
 .split { display: grid; grid-template-columns: minmax(320px, 40%) 1fr; gap: var(--gutter); align-items: start; }
 .pane { min-width: 0; }
-.card-pane { position: sticky; top: 0; max-height: calc(100dvh - env(safe-area-inset-top, 0px) - var(--tabs-h) - 2 * var(--gutter) - env(safe-area-inset-bottom, 0px)); overflow-y: auto;
+.card-pane { position: sticky; top: 0; max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 2 * var(--gutter) - env(safe-area-inset-bottom, 0px)); overflow-y: auto;
   border-left: 1px solid var(--line); padding-left: var(--gutter); }
 
 /* headings */
@@ -153,7 +148,7 @@ code { font-size: .85rem; color: var(--gold); }
 .tiers .small-btn { margin: 0 6px 0 0; }
 
 /* floating "Rules together" bar sits 8px above the tabs */
-.traybar { position: absolute; left: var(--gutter); right: var(--gutter); bottom: calc(var(--tabs-h) + 8px + env(safe-area-inset-bottom, 0px)); z-index: 7; display: flex; align-items: center; gap: 8px;
+.traybar { position: absolute; left: var(--gutter); right: var(--gutter); bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 7; display: flex; align-items: center; gap: 8px;
   min-height: 48px; padding: 0 16px; border-radius: 12px; border: 0; background: var(--gold); color: #111; font-weight: 700; box-shadow: 0 6px 20px rgba(0,0,0,.35); }
 .traybar .count { background: #111; color: var(--gold); border-radius: 12px; padding: 1px 9px; font-size: .85rem; }
 .traybar span:last-child { margin-left: auto; font-size: 1.4rem; }
@@ -267,3 +262,17 @@ details.dd.gear-dd > summary { font-weight: 600; }
 .selectors { display: flex; gap: 8px; margin-top: 8px; }
 .selectors select { flex: 1; min-width: 0; min-height: 44px; padding: 8px 10px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 10px; }
 .import-top { margin: 12px 0; }
+
+/* Equal-width button rows (as in Creatio): same width, same height, 8px apart, each with its own edge. */
+.bgrid { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; margin: 8px 0; }
+.bgrid > * { width: 100%; min-width: 0; min-height: 44px; margin: 0; display: flex; align-items: center; justify-content: center; gap: 6px; text-align: center; line-height: 1.2; }
+.bgrid > .small-btn { padding: 8px 10px; font-weight: 600; border: 1px solid var(--line); }
+.topnav { margin: 0 0 12px; }
+.navbtn { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--muted); font-weight: 650; }
+.navbtn.on { border-color: var(--gold); color: var(--gold); }
+.small-btn.ok { border-color: var(--core); color: var(--core); }
+.matchcheck { border: 1px solid var(--warn-line); background: var(--warn); border-radius: 10px; padding: 10px 12px; margin: 8px 0; }
+.matchcheck .dlabel { margin-top: 0; }
+.mc-line { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; margin: 2px 0; }
+.mc-line span { color: var(--muted); font-size: .9rem; min-width: 7.5rem; }
+.matchcheck .bgrid { margin-bottom: 0; }
