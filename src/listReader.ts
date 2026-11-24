@@ -113,7 +113,7 @@ function subsetSum(items,target){
 }
 
 function detectSystem(text){
-  const S=[[/horus heresy|legiones astartes|legio custodes|solar auxilia|mechanicum|questoris|imperialis/i,'Horus Heresy 3.0'],
+  const S=[[/horus heresy|legiones astartes|dark angels|emperor'?s children|iron warriors|white scars|space wolves|imperial fists|night lords|blood angels|iron hands|world eaters|ultramarines|death guard|thousand sons|sons of horus|word bearers|salamanders|raven guard|alpha legion|legio custodes|solar auxilia|mechanicum|questoris|imperialis/i,'Horus Heresy 3.0'],
     [/warhammer 40,?000|\b40k\b|strike force|incursion|onslaught/i,'Warhammer 40,000'],
     [/age of sigmar|\baos\b|spearhead/i,'Warhammer Age of Sigmar'],[/kill team/i,'Kill Team'],[/bolt action/i,'Bolt Action'],
     [/the old world/i,'Warhammer: The Old World'],[/middle-earth|mesbg/i,'Middle-earth Strategy Battle Game']];
@@ -121,8 +121,54 @@ function detectSystem(text){
   return '';
 }
 
+/* Hand-written lists (Google Docs, Word): "Troops (Prime): Tactical Squad; 15 men (150) + Vexilla (10), Nuncio-vox (10)....180"
+   Each unit line starts with its role, each item carries its cost in brackets, and the line total sits at the right
+   (text recognition often reads that column separately, at the bottom). Rewritten as role headings, "Name (N models) [pts]"
+   and bulleted items, with the points worked out from the bracketed costs. Returns null when the list isn't written this way. */
+const COSTED=/^([A-Z][A-Za-z\- ]{1,30}?)\s*(\(prime\))?\s*:\s*(.+?\(\s*\d{1,4}\s*\).*)$/i;
+function costedLines(texts){
+  const T=texts.map(t=>String(t).replace(/ /g,' ').replace(/[\s.…·]*[.…]{2,}[\s.…·]*/g,' ').replace(/\s+/g,' ').trim());
+  if(T.filter(t=>COSTED.test(t)).length<3)return null;
+  const costs=t=>[...t.matchAll(/\(\s*(\d{1,4})\s*\)/g)].reduce((a,m)=>a+ +m[1],0);
+  const items=t=>t.split(/\s+\+\s+|,\s*/).map(x=>x.replace(/\(\s*\d{1,4}\s*\)/g,'').replace(/[.\s]+$/,'').trim()).filter(x=>/[A-Za-z]/.test(x));
+  const out=[];let unit=null;
+  const flush=()=>{if(!unit)return;
+    out.push(unit.role);
+    out.push(`${unit.name} (${unit.models} models) [${unit.pts} pts]`);
+    for(const d of unit.dets)out.push('• '+d);unit=null};
+  for(let i=0;i<T.length;i++){
+    let t=T[i];if(!t)continue;
+    if(i===0||/^total\b/i.test(t)){flush();out.push(t);continue}
+    if(/^\d[\d,]*\.?$/.test(t))continue;                                  // the right-hand column of line totals
+    t=t.replace(/(\))\s*\d{1,4}\.?$/,'$1');                              // a line total left on the line itself
+    if(/\bdetachment\b/i.test(t)&&!/:/.test(t.split('(')[0])){flush();out.push('++ '+t.replace(/\s*\(.*$/,'').trim()+' ++');continue}
+    const m=COSTED.exec(t);
+    if(m&&!/^(prime advantage|officer of the line|command|inc\.?|includes)$/i.test(m[1].trim())||(m&&/^command$/i.test(m[1].trim())&&/^[A-Z][^(]*\(\s*\d/.test(m[3]))){
+      flush();
+      const [head,...rest]=m[3].split(/\s+\+\s+/);
+      let name=head.replace(/\(\s*\d{1,4}\s*\)/g,'').replace(/[\s.]+$/,'').trim(),models=1,mm;
+      if((mm=/^(.*?)\s*[;,]\s*(\d+)\s*(?:men|models?|strong)\b\s*(.*)$/i.exec(name))){name=(mm[1]+' '+mm[3]).trim();models=+mm[2]}
+      unit={role:m[1].trim(),name,models,pts:costs(t),dets:[]};
+      for(const r of rest)unit.dets.push(...items(r));
+      continue}
+    if(!unit){out.push(t);continue}
+    // lines under a unit: "Inc. Sergeant + Power axe (10)", "Prime Advantage: Combat Veterans (…)", "2 Graviton guns (20)"
+    unit.pts+=costs(t);
+    let lm;
+    if((lm=/^(?:inc\.?|includes|including)\s+(.+?)\s*\+\s*(.+)$/i.exec(t))){for(const it of items(lm[2]))unit.dets.push(`${lm[1].trim()}: ${it}`);continue}
+    if((lm=/^([A-Z][A-Za-z' \-]{2,40}):\s*(.*)$/.exec(t))){
+      const val=lm[2].replace(/\([^)]*\)?/g,'').trim().replace(/[.\s]+$/,'');
+      if(val)unit.dets.push(`${lm[1].trim()}: ${val}`);else if(!/^command$/i.test(lm[1].trim()))unit.dets.push(lm[1].trim());
+      continue}
+    unit.dets.push(...items(t));
+  }
+  flush();
+  return out;
+}
+
 /* lines: [{text, size?, bold?, x?, page?}] */
 function read(rawLines,opts={}){
+  {const cl=costedLines(rawLines.map(l=>l.text));if(cl)rawLines=cl.map(text=>({text}))}
   const L=clean(rawLines);
   const notes=[];
   if(!L.length)return {name:opts.fallbackName||'Imported list',system:'',units:[],check:{notes:['No text found']}};

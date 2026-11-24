@@ -145,3 +145,17 @@ Rhino [35pts]`;
     expect(matchUnit('Predator', ents.filter((e) => e.type === 'unit')).entity?.name).toBe('Predator');
   }, 60000);
 });
+
+describe('hand-written list with bracketed costs (Google Docs, read from a picture)', () => {
+  it('reads every unit, its role, models, points and items', async () => {
+    const { ListReader } = await import('./listReader');
+    const fs = await import('fs');
+    const r: any = ListReader.readText(fs.readFileSync(new URL('./testdata/iron-hands-gdocs-ocr.txt', import.meta.url), 'utf8'), { ocr: true });
+    expect(r.units.map((u: any) => `${u.slot}|${u.name}|${u.models}|${u.pts}`)).toEqual([
+      'Command|Master of Signal|1|120', 'Command|Centurion|1|100', 'Troops|Tactical Squad|15|180',
+      'Troops|Breacher Squad|10|170', 'Troops|Breacher Squad|10|170', 'War Engine|Contemptor Dreadnought|1|175',
+      'Fast Attack|Xiphon Interceptor|1|120', 'Heavy Assault|Gorgon Terminator Squad|5|200', 'Heavy Transport|Land Raider Carrier|1|265']);
+    expect(r.check.matched).toBe(true);
+    expect(r.units[2].details).toEqual(['Vexilla', 'Nuncio-vox', 'Sergeant: Power axe', 'Prime Advantage: Combat Veterans']);
+  });
+});
