@@ -9,6 +9,24 @@ import { buildArmy, canonRole, groupByRole, makeLookup, matchUnit, nameScore, pa
 import { joinOverlap, readArmyText } from './armyRead';
 import { buildCombo } from './views';
 
+describe('New Recruit table lists', () => {
+  it('reads role headings, (N) squad sizes and wrapped options', () => {
+    const r = readArmyText(['The Fall', '3000', '++ Command ++', 'Master of Descent 140 pts', '++ Troops ++', '(10) Tactical Squad 100 pts', '• 9x Legionary', '• Prime Unit',
+      '(10) Tactical Squad 100 pts', '• 9x Legionary', '++ Heavy Transport ++', 'Spartan Assault Tank 2660 pts'].join('\n'));
+    expect(r.units.map((u) => [u.slot, u.name, u.models])).toEqual([['Command', 'Master of Descent', 1], ['Troops', 'Tactical Squad', 10], ['Troops', 'Tactical Squad', 10], ['Heavy Transport', 'Spartan Assault Tank', 1]]);
+    expect(r.units[1].details).toEqual(['9× Legionary', 'Prime Unit']);
+  });
+});
+
+describe('gear aliases', () => {
+  it('resolves a generic name through an entity alias', () => {
+    const e = (name: string, aliases?: string[]) => ({ id: name, name, aliases, type: 'weapon' } as any);
+    const look = makeLookup([e('Power sword', ['Power weapon']), e('Pair of lightning claws', ['Lightning claws'])], []);
+    expect(look.gear('power weapon')?.name).toBe('Power sword');
+    expect(look.gear('Lightning claws')?.name).toBe('Pair of lightning claws');
+  });
+});
+
 describe('roles and names', () => {
   it('reads a role from a list heading, and ignores detachment names', () => {
     expect(canonRole('HQ')).toBe('Command');

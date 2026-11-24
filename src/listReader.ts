@@ -235,7 +235,9 @@ function read(rawLines,opts={}){
     if(e.k==='headPts'){group=e.name;continue}
     if(e.k!=='pts')continue;
     let nm=e.name,lead=/^(\d+)×\s*(.+)$/.exec(nm),cnt=null;
-    if(lead){nm=lead[2];cnt={n:+lead[1]}}
+    const pl=/^\((\d+)\)\s*(.+)$/.exec(nm);
+    if(pl){nm=pl[2];cnt={n:+pl[1]}}
+    else if(lead){nm=lead[2];cnt={n:+lead[1]}}
     const mm=/^(.*?)\s*\((\d+)\s*models?\)\s*$/i.exec(nm);if(mm){nm=mm[1];cnt={n:+mm[2]}}
     if(!cnt)cnt=countModels(nm,e.details);
     out.push({slot:group||'Units',name:nm.trim(),models:cnt?Math.max(1,cnt.n):1,src:group?'listed':'inferred',countSrc:cnt?'listed':'guessed',pts:e.pts,details:e.details.map(d=>d.t)});
@@ -246,6 +248,57 @@ function read(rawLines,opts={}){
 
 /* plain text (a paste, a .txt, or text recognition output) */
 function readText(text,opts){return read(String(text).replace(/\r/g,'').split('\n').map(text=>({text})),opts)}
+
+
+/* New Recruit PDF export: units sit in tables headed NAME / ROLE / POINT(S) / OPTIONS under a heading such as
+   "Crusade Primary Detachment [980 Point(s)]". Name and options wrap over several lines and sit above or below the
+   points figure, so each row is found by its points figure and the other cells go to the nearest row.
+   Returns plain lines (role headings, "Name 155 pts", bulleted options) for the normal reader, or null if the PDF isn't one. */
+function newRecruitLines(pages){
+  const out=[];let found=false,total=null,title=null;
+  for(const its of pages){
+    its.sort((a,b)=>b.y-a.y||a.x-b.x);
+    if(title==null&&its.length){const first=its[0].s;const m=/^(.*?)\s*\[[^\]]*?(\d[\d,]*)\s*Point\(s\)\s*\]/i.exec(first);
+      if(m){title=m[1].trim();total=num(m[2])}}
+    const heads=its.filter(i=>/^NAME$/.test(i.s.trim())&&i.x<14);
+    for(const h of heads){
+      const pt=its.find(i=>Math.abs(i.y-h.y)<3&&/^POINT\(S\)/i.test(i.s.trim()));
+      const role=its.find(i=>Math.abs(i.y-h.y)<3&&/^ROLE$/i.test(i.s.trim()));
+      if(!pt||!role)continue;                       // e.g. the Rite of War table has no points
+      found=true;
+      const ptsX=pt.x,roleX=role.x,nameX=h.x;
+      /* the table runs down to the next heading (an item left of the name column) or a non-table section */
+      const below=its.filter(i=>i.y<h.y-3);
+      const endItem=below.find(i=>i.x<nameX-2||/^(RITE OF WAR|Reaction|Gambit|Rules|Categories|Models|Profile)\b/.test(i.s.trim()));
+      const endY=endItem?endItem.y:-Infinity;
+      const body=below.filter(i=>i.y>endY+0.5);
+      const rows=body.filter(i=>Math.abs(i.x-ptsX)<8&&/^\d[\d,]*$/.test(i.s.trim())).map(i=>({y:i.y,pts:num(i.s),name:[],role:[],opt:[]}));
+      if(!rows.length)continue;
+      /* the options column starts to the right of the points figure */
+      for(const i of body){
+        if(Math.abs(i.x-ptsX)<8&&/^\d[\d,]*$/.test(i.s.trim()))continue;
+        const row=rows.slice().sort((a,b)=>Math.abs(a.y-i.y)-Math.abs(b.y-i.y))[0];
+        if(Math.abs(row.y-i.y)>17)continue;
+        const col=i.x<roleX-3?'name':(i.x<ptsX-3?'role':(i.x>ptsX+8?'opt':'x'));
+        if(col==='name')row.name.push(i);else if(col==='role')row.role.push(i);else if(col==='opt')row.opt.push(i);
+      }
+      let lastRole=null;
+      for(const r of rows){
+        const txt=a=>a.sort((p,q)=>q.y-p.y||p.x-q.x).map(i=>i.s.trim()).join(' ').replace(/\s+/g,' ').trim();
+        const name=txt(r.name),rl=txt(r.role).split(/\s+-\s+/)[0];
+        if(!name)continue;
+        if(rl&&rl!==lastRole){out.push('++ '+rl+' ++');lastRole=rl}
+        out.push(`${name} ${r.pts} pts`);
+        const lines=r.opt.sort((p,q)=>q.y-p.y||p.x-q.x).map(i=>i.s.trim()).filter(Boolean);
+        const joined=[];
+        for(const l of lines){const p=joined[joined.length-1];if(p&&(/,$/.test(p)||/^[a-z]/.test(l)))joined[joined.length-1]=p+' '+l;else joined.push(l)}
+        joined.forEach(l=>out.push('• '+l));
+      }
+    }
+  }
+  if(!found||!out.length)return null;
+  return {lines:[title||'Imported list',...(total!=null?[String(total)]:[]),...out]};
+}
 
 /* pdf.js text items -> lines with font size, weight and x; works with any pdf.js document */
 async function pdfLines(doc){
@@ -259,6 +312,8 @@ async function pdfLines(doc){
     its.forEach(i=>fontUse.set(i.f,(fontUse.get(i.f)||0)+i.s.length));
     pages.push(its);
   }
+  const nr=newRecruitLines(pages.map(p=>p.map(i=>({...i}))));
+  if(nr)return nr.lines.map(text=>({text}));
   /* the most used font is body text; others are headings or emphasis */
   const body=[...fontUse.entries()].sort((a,b)=>b[1]-a[1])[0]?.[0];
   for(const its of pages){
