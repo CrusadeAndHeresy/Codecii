@@ -259,14 +259,30 @@ export function normalizeGear(gear: ArmyGear[], look: GearLookup): ArmyGear[] {
 
 // ---------- Building an army from a reading ----------
 
-export interface ReadUnit { slot?: string; legion?: string; name: string; models: number; countSrc?: string; pts?: number; details?: string[] }
+export interface ReadUnit { slot?: string; legion?: string; name: string; models: number; countSrc?: string; pts?: number; details?: string[]; alts?: { name: string; pts: number }[] }
 export interface Reading { name: string; system?: string; units: ReadUnit[]; check?: { total?: number | null; sum?: number; notes?: string[] } }
 export interface ArmyContext { editionId: string; units: Entity[]; look: GearLookup }
 
 export function buildArmy(reading: Reading, ctx: ArmyContext, sourceName?: string, now = Date.now()): Army {
   const groups = new Map<string, ArmyUnit>();
   const order: ArmyUnit[] = [];
-  for (const r of reading.units) {
+  // A line with a cost under a unit could be an upgrade or another unit ("Gun Bunnies (30)"). The reader can't tell, the library can:
+  // if the library knows the name as a unit and not as wargear, it is promoted to a unit of its own.
+  const readUnits: ReadUnit[] = [];
+  for (const r0 of reading.units) {
+    let r = r0;
+    const promoted: ReadUnit[] = [];
+    for (const alt of r0.alts ?? []) {
+      const m = matchUnit(alt.name, ctx.units);
+      if (m.entity && m.score >= SURE && !ctx.look.gear(alt.name)) {
+        const details = [...(r.details ?? [])]; const at = details.indexOf(alt.name); if (at >= 0) details.splice(at, 1);
+        r = { ...r, pts: (r.pts ?? 0) - alt.pts, details };
+        promoted.push({ slot: r0.slot, legion: r0.legion, name: alt.name, models: 1, countSrc: 'guessed', pts: alt.pts, details: [] });
+      }
+    }
+    readUnits.push(r, ...promoted);
+  }
+  for (const r of readUnits) {
     const m = matchUnit(r.name, ctx.units);
     const matched = m.score >= 0.5 ? m.entity : undefined;
     const key = matched ? matched.id : 'x:' + nameKey(r.name);

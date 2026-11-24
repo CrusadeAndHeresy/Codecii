@@ -187,3 +187,24 @@ describe('points that look wrong are still read', () => {
     expect(r.check.notes.join()).toMatch(/add up to 650/);
   });
 });
+
+describe('cost with no role: judged by structure and the library, not by size', () => {
+  const costed = (extra: string) => `Test 500pts\nCommand: Centurion (80)\n${extra}\nTroops: Tactical Squad; 10 men (140)\nTotal 500`;
+  it('a cheap role-less line before any unit is a unit, whatever it costs', async () => {
+    const { ListReader } = await import('./listReader');
+    const r: any = ListReader.readText('Test 500pts\nMilitia Squad (30)\nTroops: Tactical Squad; 10 men (140)\nTroops: Breacher Squad; 10 men (140)', {});
+    expect(r.units.map((u: any) => `${u.name}=${u.pts}`)).toEqual(['Militia Squad=30', 'Tactical Squad=140', 'Breacher Squad=140']);
+  });
+  it('a role-less line under a unit stays an upgrade unless the library knows it as a unit', async () => {
+    const { ListReader } = await import('./listReader');
+    const { buildArmy } = await import('./army');
+    const r: any = ListReader.readText(costed('Power axe (50)\nGun Bunnies (30)'), {});
+    expect(r.units[0].alts.map((a: any) => a.name)).toEqual(['Power axe', 'Gun Bunnies']);
+    const look: any = { gear: (n: string) => (/power axe/i.test(n) ? { id: 'g1', name: 'Power axe' } : undefined), rule: () => undefined };
+    const ctx: any = { editionId: 'e', units: [{ id: 'u1', name: 'Gun Bunnies', type: 'unit' }, { id: 'u2', name: 'Centurion', type: 'unit' }], look };
+    const a = buildArmy(r, ctx);
+    expect(a.units.map((u) => u.listName)).toEqual(['Centurion', 'Gun Bunnies', 'Tactical Squad']);
+    expect(a.units[0].copies[0].pts).toBe(130);        // Centurion 80 + Power axe 50; the 30 moved to the Bunnies
+    expect(a.units[1].copies[0].pts).toBe(30);
+  });
+});
