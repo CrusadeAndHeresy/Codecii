@@ -153,6 +153,7 @@ export interface Entity {
   editionId: string;
   sourceId: string;
   name: string;
+  aliases?: string[];    // other names this entry goes by, e.g. "lightning claws" for the pair
   type: 'unit' | 'wargear' | 'weapon' | 'other';
   faction?: string;
   unitType?: string;     // HH3 e.g. "Infantry"

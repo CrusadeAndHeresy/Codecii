@@ -41,7 +41,7 @@ export interface ImportAmendment {
   alsoRules?: string[]; // other rules a Q&A covers
 }
 export interface ImportEntity {
-  name: string; type: Entity['type']; faction?: string; page?: string | number; rules: string[];
+  name: string; aliases?: string[]; type: Entity['type']; faction?: string; page?: string | number; rules: string[];
   unitType?: string; subTypes?: string[]; role?: string; keywords?: string[]; notes?: string;
   stats?: Record<string, string | number> | { label: string; value: string | number }[];
   wargear?: string[];   // names of weapons/wargear entries
@@ -266,7 +266,7 @@ export function planImport(raw: unknown, now = Date.now()): ImportPlan {
     const topTypes = typeIdsOf(e.unitType, e.subTypes ?? []);
     const refs = uniq([...topRules, ...(profiles ? profiles.flatMap((p) => p.rules) : [])]);
     entities.push({
-      id, editionId, sourceId, name: e.name, type: e.type, faction: e.faction, page: pageStr(e.page),
+      id, editionId, sourceId, name: e.name, aliases: e.aliases?.length ? e.aliases : undefined, type: e.type, faction: e.faction, page: pageStr(e.page),
       unitType: e.unitType, subTypes: e.subTypes ?? [], role: e.role,
       stats: profiles ? [] : toStats(e.stats), keywords: e.keywords ?? [], notes: e.notes,
       rules: refs,

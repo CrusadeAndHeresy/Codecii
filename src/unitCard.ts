@@ -281,10 +281,13 @@ export async function buildUnitCard(db: LibraryDB, unit: ArmyUnit, entity: Entit
   const stdName = (n: string) => n.toLowerCase().replace(/[\[\]]/g, '').replace(/\([^)]*\)/g, ' ').replace(/\bsub-?types?\b/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
   const stdNames = new Set([...types, ...rules, ...traits].map((x) => stdName(x.name)).filter(Boolean));
   const standard = new Set(wargear.flatMap((w) => [plain(w.key), ...w.children.map((c) => plain(c.key))]));
+  // the same item can sit in the library under two entries ("Frag grenade" / "Frag grenades"): standard by name too
+  const standardNames = wargear.flatMap((w) => [w.name, ...w.children.map((c) => c.name)]);
   const taken = await Promise.all(copies.map(async (c, ci) => {
     const items = (await Promise.all(c.gear.map((g, gi) => resolveTaken(db, g, gi, entity, look, hints, cache, choices[ci].via, lineLabels))))
       .filter((x): x is GearItem => !!x)
       .filter((x) => !(x.entityId && standard.has(plain(x.entityId))))
+      .filter((x) => x.rule || !standardNames.some((n) => sameName(n, x.name) || (x.matched && sameName(n, x.matched))))
       .filter((x) => !stdNames.has(stdName(x.name)));
     return { copyId: c.id, label: `${copies.length > 1 ? `Copy ${ci + 1} · ` : ''}${c.models} model${c.models === 1 ? '' : 's'}`, items };
   }));
