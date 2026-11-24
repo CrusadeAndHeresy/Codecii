@@ -281,3 +281,7 @@ details.intro > summary { cursor: pointer; color: var(--muted); font-size: .9rem
 details.intro > summary::-webkit-details-marker { display: none; }
 details.intro > summary::before { content: '▸ '; margin-right: 4px; }
 details.intro[open] > summary::before { content: '▾ '; }
+
+.loading{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;min-height:50vh;color:var(--muted,#888);font-size:15px}
+.spin{width:28px;height:28px;border-radius:50%;border:3px solid currentColor;border-top-color:transparent;opacity:.6;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}

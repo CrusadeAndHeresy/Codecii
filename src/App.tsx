@@ -34,6 +34,7 @@ export default function App() {
   const [tray, setTray] = useState<TrayRef[]>(() => { try { return JSON.parse(pref.get('tray') ?? '[]'); } catch { return []; } });
   const [wide, setWide] = useState(() => window.matchMedia('(min-width: 900px)').matches);
   const [version, setVersion] = useState(0);
+  const [loaded, setLoaded] = useState(false);
   const bump = () => setVersion((v) => v + 1);
 
   useEffect(() => {
@@ -48,7 +49,7 @@ export default function App() {
   useEffect(() => {
     (async () => {
       const [s, e] = await Promise.all([db.systems.toArray(), db.editions.toArray()]);
-      setSystems(s); setEditions(e);
+      setSystems(s); setEditions(e); setLoaded(true);
       if (!e.length) setTab('library');
       if (!editionId || !e.some((x) => x.id === editionId)) {
         const latest = [...e].sort((a, b) => (a.name < b.name ? 1 : -1))[0];
@@ -90,7 +91,10 @@ export default function App() {
   const picked = index?.books.find((b) => b.id === bookId);
   const counts = picked ? { rules: picked.rules, entities: picked.entities } : index ? { rules: index.count, entities: index.entityCount } : undefined;
 
-  const main = (
+  const loading = !loaded || (!!editionId && !index && editions.some((x) => x.id === editionId));
+  const main = loading ? (
+    <div className="loading" role="status"><div className="spin" /><div>Getting your rules ready…</div></div>
+  ) : (
     <>
       {tab === 'army' && <ArmyPane index={index} editionId={editionId} open={open} />}
       {tab === 'search' && (
