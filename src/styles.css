@@ -276,3 +276,8 @@ details.dd.gear-dd > summary { font-weight: 600; }
 .mc-line { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; margin: 2px 0; }
 .mc-line span { color: var(--muted); font-size: .9rem; min-width: 7.5rem; }
 .matchcheck .bgrid { margin-bottom: 0; }
+details.intro { margin: 4px 0 8px; }
+details.intro > summary { cursor: pointer; color: var(--muted); font-size: .9rem; min-height: 36px; display: flex; align-items: center; list-style: none; }
+details.intro > summary::-webkit-details-marker { display: none; }
+details.intro > summary::before { content: '▸ '; margin-right: 4px; }
+details.intro[open] > summary::before { content: '▾ '; }

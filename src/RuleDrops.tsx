@@ -5,6 +5,7 @@ import type { Rule, Source, Stat } from './model';
 import type { EditionIndex } from './search';
 import { loadRuleView, type RuleView } from './store';
 import { statText } from './importer';
+import { splitIntro } from './ruleText';
 import { sameName, type GearItem, type RuleItem } from './unitCard';
 
 const srcLabel = (s: Source, page?: string) => `${s.title}${s.version ? ` v${s.version}` : ''}${page ? `, p.${page}` : ''}`;
@@ -59,13 +60,7 @@ export function RuleBody({ ruleId, index, open }: { ruleId: string } & Ctx) {
   const subs = trail.length >= MAX_DEPTH ? [] : [...v.related, ...v.mentions].filter((r) => !seen.has(r.id) && seen.add(r.id));
   return (
     <Trail.Provider value={[...trail, ruleId]}>
-      {(v.rule.phase || v.rule.category) && (
-        <div className="badges">
-          {v.rule.phase && <span className="badge">{v.rule.phase}</span>}
-          {v.rule.category && <span className="badge">{v.rule.category}</span>}
-        </div>
-      )}
-      {cur ? <p className="ruletext small-text">{cur.text}</p> : <p className="muted small">No text for this rule in your library yet.</p>}
+      {cur ? <RuleText summary={cur.printing.summary} fullText={cur.printing.fullText} text={cur.text} /> : <p className="muted small">No text for this rule in your library yet.</p>}
       {cur && <div className="source">{srcLabel(cur.source, cur.printing.page)}</div>}
       {v.applied.length > 0 && <div className="note">Amended by {v.applied.map((x) => srcLabel(x.source, x.a.page)).join('; ')}.</div>}
       {v.clarifications.slice(0, 3).map((x, i) => (
@@ -75,6 +70,18 @@ export function RuleBody({ ruleId, index, open }: { ruleId: string } & Ctx) {
       <SubRuleChips label="Related rules" rules={subs} index={index} open={open} />
       <button className="link inline" onClick={() => open('r:' + ruleId)}>Open the rule page ›</button>
     </Trail.Provider>
+  );
+}
+
+// The rule's own wording first; any background paragraph before it is one tap away (the rule page has it all).
+function RuleText({ summary, fullText, text }: { summary?: string; fullText?: string; text: string }) {
+  const { intro, body } = splitIntro(summary, fullText);
+  if (!intro.length) return <p className="ruletext small-text">{text}</p>;
+  return (
+    <>
+      <p className="ruletext small-text">{body.join('\n\n')}</p>
+      <details className="intro"><summary>Background</summary><p className="ruletext small-text muted">{intro.join('\n\n')}</p></details>
+    </>
   );
 }
 
