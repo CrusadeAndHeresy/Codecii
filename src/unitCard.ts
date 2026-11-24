@@ -5,7 +5,7 @@
 // Rules are only named here; their text and sub-rules are loaded when a dropdown is opened.
 import type { LibraryDB } from './db';
 import type { Entity, EntityProfile, RuleRef, Stat } from './model';
-import { nameScore, squashKey, tokens, type ArmyCopy, type ArmyGear, type ArmyUnit, type GearLookup } from './army';
+import { normalizeGear, nameScore, squashKey, tokens, type ArmyCopy, type ArmyGear, type ArmyUnit, type GearLookup } from './army';
 import { getEntity, mergedLine, nameFromId, pickVersion, resolveTypeIds } from './views';
 
 export interface RuleItem { ruleId: string; name: string; value?: string; faction?: string; missing?: boolean; trait?: boolean; tag?: string }
@@ -241,7 +241,8 @@ export async function buildUnitCard(db: LibraryDB, unit: ArmyUnit, entity: Entit
   const cache: RuleCache = new Map();
   const hints = entity ? hintsOf(entity) : [];
   const notes: string[] = [];
-  const copies = unit.copies;
+  // Lists read before the wording fixes still carry "mixed weapons ( a , b )" and a stray "Legion": tidy them as the card is built.
+  const copies = unit.copies.map((c) => ({ ...c, gear: normalizeGear(c.gear, look) }));
   const choices = copies.map((c) => (entity ? chooseLines(entity, c, unit.listName) : { indexes: [], via: new Map<number, number>() }));
 
   let lines: ShownLine[] = [];
@@ -277,7 +278,6 @@ export async function buildUnitCard(db: LibraryDB, unit: ArmyUnit, entity: Entit
     traits = mergeRules(parts.map((x) => x.tr), labels);
     wargear = mergeGear(parts.map((x) => x.w), labels);
     if (!lines.some((l) => l.stats.length)) notes.push('No profile is printed for this entry in your library.');
-  } else {
   }
 
   // Options taken, per copy. Anything the unit already carries as standard is in "Wargear", not repeated here.
