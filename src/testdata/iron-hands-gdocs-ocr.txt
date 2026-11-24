@@ -1,0 +1,47 @@
+Iron Hands 1500pts.
+Crusade Primary Detachment (0-1 High Command, 03 Command, 0-4 Troops, 0-4 Transport)
+Command (Prime): Master of Signal (120)
+
+Prime Advantage: The Iron Clad (+1 War Engine to this Detachment, gains Champion)
+
+Command: (+1 Auxiiary Detachment: unused)
+
+Command: Centurion (80) + Power maul (10), Cyber-familiar (10).
+Officer of the Line: («2 Awsitary Detachments: First Stike, Spearhead Phalanx)
+
+Troops (Prime): Tactical Squad; 15 men (150) + Vexilla (10), Nuncio-vox (10).
+Inc. Sergeant + Power axe (10)
+Prime Advantage: Combat Veterans (The unt has +1 Ld, In & C)
+Troops: Breacher Squad; 10 men (140) + Vexilla (10), 2 Lascutters (20)
+Troops: Breacher Squad; 10 men (140) + Vexilla (10), 2 Lascutters (20)
+
+War Engine: Contemptor Dreadnought (150) + Paired Gravis power fists (5),
+2 Graviton guns (20)
+
+First Strike Detachment (0.2Fast attack)
+Fast Attack: Xiphon Interceptor (120).
+
+Spearhead Phalanx Detachment (0-1 Heavy Transport, 0-1 Amour, 0-1 Heavy Assaul)
+Heavy Assault: Gorgon Terminator Squad; 5 men (200)
+
+Heavy Transport: Land Raider Carrier (265).
+
+120
+
+100
+
+180
+
+170
+
+170
+
+475
+
+120
+
+200
+
+265
+
+Total 1500

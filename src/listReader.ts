@@ -113,7 +113,7 @@ function subsetSum(items,target){
 }
 
 function detectSystem(text){
-  const S=[[/horus heresy|legiones astartes|legio custodes|solar auxilia|mechanicum|questoris|imperialis/i,'Horus Heresy 3.0'],
+  const S=[[/horus heresy|legiones astartes|dark angels|emperor'?s children|iron warriors|white scars|space wolves|imperial fists|night lords|blood angels|iron hands|world eaters|ultramarines|death guard|thousand sons|sons of horus|word bearers|salamanders|raven guard|alpha legion|legio custodes|solar auxilia|mechanicum|questoris|imperialis/i,'Horus Heresy 3.0'],
     [/warhammer 40,?000|\b40k\b|strike force|incursion|onslaught/i,'Warhammer 40,000'],
     [/age of sigmar|\baos\b|spearhead/i,'Warhammer Age of Sigmar'],[/kill team/i,'Kill Team'],[/bolt action/i,'Bolt Action'],
     [/the old world/i,'Warhammer: The Old World'],[/middle-earth|mesbg/i,'Middle-earth Strategy Battle Game']];
@@ -121,8 +121,65 @@ function detectSystem(text){
   return '';
 }
 
+/* Hand-written lists (Google Docs, Word): "Troops (Prime): Tactical Squad; 15 men (150) + Vexilla (10), Nuncio-vox (10)....180"
+   Each unit line starts with its role, each item carries its cost in brackets, and the line total sits at the right
+   (text recognition often reads that column separately, at the bottom). Read straight into units, with the points worked
+   out from the bracketed costs. Returns null when the list isn't written this way.
+   A line with a cost but no role ("Gun Bunnies (30)") is a unit when it comes before any unit; under a unit it is read as
+   that unit's upgrade, and also noted in `alts` so the app can promote it to a unit if the library knows it as one.
+   Nothing here depends on how big a cost is: that differs by game, edition and army. */
+const COSTED=/^([A-Z][A-Za-z\- ]{1,30}?)\s*(\(prime\))?\s*:\s*(.+?\(\s*\d{1,4}\s*\).*)$/i;
+function costedRead(texts,opts){
+  const T=texts.map(t=>String(t).replace(/\u00a0/g,' ').replace(/[\s.…·]*[.…]{2,}[\s.…·]*/g,' ').replace(/\s+/g,' ').trim());
+  if(T.filter(t=>COSTED.test(t)).length<2)return null;
+  const costs=t=>[...t.matchAll(/\(\s*(\d{1,4})\s*\)/g)].reduce((a,m)=>a+ +m[1],0);
+  const items=t=>t.split(/\s+\+\s+|,\s*/).map(x=>x.replace(/\(\s*\d{1,4}\s*\)/g,'').replace(/[.\s]+$/,'').trim()).filter(x=>/[A-Za-z]/.test(x));
+  const units=[];let unit=null,total=null,title=null;
+  const flush=()=>{if(!unit)return;
+    units.push({slot:unit.role,name:unit.name,models:unit.models,src:'listed',countSrc:unit.counted?'listed':'guessed',pts:unit.pts,details:unit.dets,...(unit.alts.length?{alts:unit.alts}:{})});unit=null};
+  for(let i=0;i<T.length;i++){
+    let t=T[i];if(!t)continue;
+    if(i===0){const fp=findPoints(t);title=((fp&&fp.name)||t).replace(/[\s:\-–—.]+$/,'').trim();if(fp&&fp.strong)total=fp.pts;continue}
+    let tm;
+    if(/^total\b/i.test(t)){flush();if((tm=/\btotal\b[^0-9]{0,20}(\d[\d,]*)/i.exec(t)))total=num(tm[1]);continue}
+    if(/^\d[\d,]*\.?$/.test(t))continue;                                  // the right-hand column of line totals
+    t=t.replace(/(\))\s*\d{1,4}\.?$/,'$1');                              // a line total left on the line itself
+    if(/\bdetachment\b/i.test(t)&&!/:/.test(t.split('(')[0])){flush();continue}
+    let m=COSTED.exec(t);
+    let bare=null;
+    if(!m&&!/:/.test(t)&&!/^(inc\.?|includes?|including|\d)/i.test(t))bare=/^([A-Z][A-Za-z' \-]{2,40}?)\s*\(\s*(\d{1,4})\s*\)\s*(?:\+\s*(.*))?$/.exec(t);
+    if(bare&&!unit)m=[t,'Units',undefined,bare[1]+' ('+bare[2]+')'+(bare[3]?' + '+bare[3]:'')];
+    if(m&&!/^(prime advantage|officer of the line|command|inc\.?|includes)$/i.test(m[1].trim())||(m&&/^command$/i.test(m[1].trim())&&/^[A-Z][^(]*\(\s*\d/.test(m[3]))){
+      flush();
+      const [head,...rest]=m[3].split(/\s+\+\s+/);
+      let name=head.replace(/\(\s*\d{1,4}\s*\)/g,'').replace(/[\s.]+$/,'').trim(),models=1,counted=false,mm;
+      if((mm=/^(.*?)\s*(?:[;,]|\()?\s*(\d+)\s*(?:men|models?|strong)\b\)?\s*(.*)$/i.exec(name))){name=(mm[1]+' '+mm[3]).trim();models=+mm[2];counted=true}
+      unit={role:m[1].trim(),name,models,counted,pts:costs(t),dets:[],alts:[]};
+      for(const r of rest)unit.dets.push(...items(r));
+      continue}
+    if(!unit)continue;
+    // lines under a unit: "Inc. Sergeant + Power axe (10)", "Prime Advantage: Combat Veterans (…)", "2 Graviton guns (20)"
+    unit.pts+=costs(t);
+    let lm;
+    if(bare){unit.dets.push(bare[1].trim());unit.alts.push({name:bare[1].trim(),pts:+bare[2]});for(const r of (bare[3]?[bare[3]]:[]))unit.dets.push(...items(r));continue}
+    if((lm=/^(?:inc\.?|includes|including)\s+(.+?)\s*\+\s*(.+)$/i.exec(t))){for(const it of items(lm[2]))unit.dets.push(`${lm[1].trim()}: ${it}`);continue}
+    if((lm=/^([A-Z][A-Za-z' \-]{2,40}):\s*(.*)$/.exec(t))){
+      const val=lm[2].replace(/\([^)]*\)?/g,'').trim().replace(/[.\s]+$/,'');
+      if(val)unit.dets.push(`${lm[1].trim()}: ${val}`);else if(!/^command$/i.test(lm[1].trim()))unit.dets.push(lm[1].trim());
+      continue}
+    unit.dets.push(...items(t));
+  }
+  flush();
+  if(!units.length)return null;
+  const sum=units.reduce((t,u)=>t+u.pts,0),notes=[];
+  if(total!=null&&sum!==total)notes.push(`Units add up to ${sum} points; the list says ${total}`);
+  if(total==null)notes.push('No army total found to check against');
+  return {name:title||opts.fallbackName||'Imported list',system:opts.system||detectSystem(T.slice(0,6).join(' ')+' '+(opts.hint||'')),units,check:{total,sum,matched:total!=null&&sum===total,notes}};
+}
+
 /* lines: [{text, size?, bold?, x?, page?}] */
 function read(rawLines,opts={}){
+  {const cr=costedRead(rawLines.map(l=>l.text),opts);if(cr)return cr}
   const L=clean(rawLines);
   const notes=[];
   if(!L.length)return {name:opts.fallbackName||'Imported list',system:'',units:[],check:{notes:['No text found']}};
@@ -130,8 +187,8 @@ function read(rawLines,opts={}){
 
   /* header: title, then up to a few lines before the first unit or heading; the army total is a lone number,
      "Faction • 1,700", "[2000pts]" or a "total" line */
-  let total=null,ti=0;
-  const name=((findPoints(L[0].text)||{name:L[0].text}).name||'').replace(/[\s:\-–—]+$/,'').trim()||L[0].text;
+  let total=null,ti=0,titleIsUnit=false;
+  let name=((findPoints(L[0].text)||{name:L[0].text}).name||'').replace(/[\s:\-–—]+$/,'').trim()||L[0].text;
   const fp0=findPoints(L[0].text);
   let first=1;
   for(let i=0;i<Math.min(L.length,6);i++){
@@ -145,6 +202,10 @@ function read(rawLines,opts={}){
   if(total==null&&fp0&&fp0.strong&&L.length>1&&L.slice(1).some(l=>findPoints(l.text))){total=fp0.pts;L[0].skip=true}
   /* lines between the title and the total are the subtitle (faction etc.) */
   for(let i=0;i<first;i++)L[i].skip=true;
+  if(first===1&&fp0&&!fp0.strong&&/[A-Za-z]/.test(fp0.name)){
+    const others=L.slice(1).map(l=>findPoints(l.text)).filter(Boolean);
+    if(others.length&&fp0.pts!==others.reduce((t,f)=>t+f.pts,0)){L[0].skip=false;titleIsUnit=true;name=opts.fallbackName||'Imported list'}
+  }
   if(first===1&&!(fp0&&!L[0].skip))L[0].skip=true;
 
   /* in a PDF, headings are at least as large as unit names */
@@ -224,7 +285,7 @@ function read(rawLines,opts={}){
   if(total!=null&&sum!==total)notes.push(`Units add up to ${sum} points; the list says ${total}`);
   if(total==null)notes.push('No army total found to check against');
 
-  if(!units.length&&fp0&&fp0.strong){
+  if(!units.length&&fp0&&(fp0.strong||L.length===1)){
     const e={k:'pts',t:L[0].text,l:L[0],pts:fp0.pts,name:fp0.name.trim(),details:L.slice(1).map(l=>({t:l.text,bullet:!!l.bullet})),strong:true};
     E.unshift(e);units=[e];sum=e.pts;total=null;notes.length=0;notes.push('Read as a single unit card');
   }
@@ -242,6 +303,27 @@ function read(rawLines,opts={}){
     if(!cnt)cnt=countModels(nm,e.details);
     const gp=/^(.*?)\s*\|\s*(.+)$/.exec(group||'');
     out.push({slot:gp?gp[1]:(group||'Units'),legion:gp?gp[2]:undefined,name:nm.trim(),models:cnt?Math.max(1,cnt.n):1,src:group?'listed':'inferred',countSrc:cnt?'listed':'guessed',pts:e.pts,details:e.details.map(d=>d.t)});
+  }
+  /* a list of bare names with no points at all ("Praetor / Tactical Squad / Gun Bunnies"): every line is a unit,
+     "Heading:" lines and ++ headings are slots, bulleted lines belong to the unit above. Nothing can be checked against a total. */
+  if(!out.length){
+    const names=L.filter(l=>!l.skip||l===L[0]);
+    const short=names.filter(l=>l.text.split(/\s+/).length<=8);
+    if(names.length>=2&&short.length>=names.length*0.6&&!names.some(l=>statRow(l.text)||/\(\s*\d{2,4}\s*\)|\d{2,4}\s*(?:pts?|points?)\b|\s\d{2,4}\s*$/i.test(l.text))){
+      let slot=null,last=null;const u=[];
+      for(const l of names){
+        const t=l.text.replace(/[\s:]+$/,'').trim();
+        if(l.boxed||/:\s*$/.test(l.text)){slot=t;continue}
+        if(l.bullet&&last){last.details.push(t);continue}
+        let nm=t,n=null,m;
+        if((m=/^(\d+)\s*[×x]?\s+(.+)$/i.exec(nm))){n=+m[1];nm=m[2]}else if((m=/^(.+?)\s*[×x]\s*(\d+)$/i.exec(nm))){n=+m[2];nm=m[1]}
+        last={slot:slot||'Units',name:nm,models:n||1,src:slot?'listed':'inferred',countSrc:n?'listed':'guessed',details:[]};u.push(last);
+      }
+      if(u.length){
+        notes.length=0;notes.push('No points in this list: each line is read as a unit');
+        return {name:opts.fallbackName||'Imported list',system:opts.system||detectSystem(names.slice(0,6).map(l=>l.text).join(' ')+' '+(opts.hint||'')),units:u,check:{total:null,sum:null,matched:false,notes}};
+      }
+    }
   }
   const sys=opts.system||detectSystem(L.slice(0,6).map(l=>l.text).join(' ')+' '+(opts.hint||''));
   return {name,system:sys,units:out,check:{total,sum,matched:total!=null&&sum===total,notes},...(opts.debug?{debug:E}:{})};

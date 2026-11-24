@@ -145,3 +145,66 @@ Rhino [35pts]`;
     expect(matchUnit('Predator', ents.filter((e) => e.type === 'unit')).entity?.name).toBe('Predator');
   }, 60000);
 });
+
+describe('hand-written list with bracketed costs (Google Docs, read from a picture)', () => {
+  it('reads every unit, its role, models, points and items', async () => {
+    const { ListReader } = await import('./listReader');
+    const fs = await import('fs');
+    const r: any = ListReader.readText(fs.readFileSync(new URL('./testdata/iron-hands-gdocs-ocr.txt', import.meta.url), 'utf8'), { ocr: true });
+    expect(r.units.map((u: any) => `${u.slot}|${u.name}|${u.models}|${u.pts}`)).toEqual([
+      'Command|Master of Signal|1|120', 'Command|Centurion|1|100', 'Troops|Tactical Squad|15|180',
+      'Troops|Breacher Squad|10|170', 'Troops|Breacher Squad|10|170', 'War Engine|Contemptor Dreadnought|1|175',
+      'Fast Attack|Xiphon Interceptor|1|120', 'Heavy Assault|Gorgon Terminator Squad|5|200', 'Heavy Transport|Land Raider Carrier|1|265']);
+    expect(r.check.matched).toBe(true);
+    expect(r.units[2].details).toEqual(['Vexilla', 'Nuncio-vox', 'Sergeant: Power axe', 'Prime Advantage: Combat Veterans']);
+  });
+});
+
+describe('a list of bare unit names with no points', () => {
+  it('reads every line as a unit and only suggests typo matches, never confirms them', async () => {
+    const { ListReader } = await import('./listReader');
+    const { matchUnit, SURE } = await import('./army');
+    const r: any = ListReader.readText(fs.readFileSync(new URL('./testdata/bare-names.txt', import.meta.url), 'utf8'), {});
+    expect(r.units.map((u: any) => u.name)).toEqual(['Praetor', 'Champiom', 'Master of Decant', 'Ass Squad', 'Ass Squad', 'Tax Squad', 'Spoiler Squad', 'Gun Bunnies', 'Tactimooks']);
+    const lib = ['Champion', 'Assault Squad', 'Tactical Squad', 'Command Squad'].map((name) => ({ id: name, name } as any));
+    const typo = matchUnit('Champiom', lib);
+    expect(typo.entity?.name).toBe('Champion');
+    expect(typo.score).toBeLessThan(SURE);
+    expect(matchUnit('Ass Squad', lib).entity?.name).toBe('Assault Squad');
+    expect(matchUnit('Tax Squad', lib).candidates.every((c) => c.score < SURE)).toBe(true);
+  });
+});
+
+describe('points that look wrong are still read', () => {
+  it('keeps a unit with an odd cost, with or without a title or total', async () => {
+    const { ListReader } = await import('./listReader');
+    const names = (t: string) => (ListReader.readText(t, { fallbackName: 'Imported list' }) as any).units.map((u: any) => `${u.name}=${u.pts}`);
+    expect(names('My list\nPraetor 500\nTactical Squad 150')).toEqual(['Praetor=500', 'Tactical Squad=150']);
+    expect(names('Praetor 500\nTactical Squad 150')).toEqual(['Praetor=500', 'Tactical Squad=150']);
+    expect(names('Praetor 500')).toEqual(['Praetor=500']);
+    const r: any = ListReader.readText('My list [1000pts]\nPraetor 500\nTactical Squad 150', {});
+    expect(r.units.length).toBe(2);
+    expect(r.check.notes.join()).toMatch(/add up to 650/);
+  });
+});
+
+describe('cost with no role: judged by structure and the library, not by size', () => {
+  const costed = (extra: string) => `Test 500pts\nCommand: Centurion (80)\n${extra}\nTroops: Tactical Squad; 10 men (140)\nTotal 500`;
+  it('a cheap role-less line before any unit is a unit, whatever it costs', async () => {
+    const { ListReader } = await import('./listReader');
+    const r: any = ListReader.readText('Test 500pts\nMilitia Squad (30)\nTroops: Tactical Squad; 10 men (140)\nTroops: Breacher Squad; 10 men (140)', {});
+    expect(r.units.map((u: any) => `${u.name}=${u.pts}`)).toEqual(['Militia Squad=30', 'Tactical Squad=140', 'Breacher Squad=140']);
+  });
+  it('a role-less line under a unit stays an upgrade unless the library knows it as a unit', async () => {
+    const { ListReader } = await import('./listReader');
+    const { buildArmy } = await import('./army');
+    const r: any = ListReader.readText(costed('Power axe (50)\nGun Bunnies (30)'), {});
+    expect(r.units[0].alts.map((a: any) => a.name)).toEqual(['Power axe', 'Gun Bunnies']);
+    const look: any = { gear: (n: string) => (/power axe/i.test(n) ? { id: 'g1', name: 'Power axe' } : undefined), rule: () => undefined };
+    const ctx: any = { editionId: 'e', units: [{ id: 'u1', name: 'Gun Bunnies', type: 'unit' }, { id: 'u2', name: 'Centurion', type: 'unit' }], look };
+    const a = buildArmy(r, ctx);
+    expect(a.units.map((u) => u.listName)).toEqual(['Centurion', 'Gun Bunnies', 'Tactical Squad']);
+    expect(a.units[0].copies[0].pts).toBe(130);        // Centurion 80 + Power axe 50; the 30 moved to the Bunnies
+    expect(a.units[1].copies[0].pts).toBe(30);
+  });
+});
