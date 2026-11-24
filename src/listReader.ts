@@ -147,7 +147,7 @@ function costedLines(texts){
       flush();
       const [head,...rest]=m[3].split(/\s+\+\s+/);
       let name=head.replace(/\(\s*\d{1,4}\s*\)/g,'').replace(/[\s.]+$/,'').trim(),models=1,mm;
-      if((mm=/^(.*?)\s*[;,]\s*(\d+)\s*(?:men|models?|strong)\b\s*(.*)$/i.exec(name))){name=(mm[1]+' '+mm[3]).trim();models=+mm[2]}
+      if((mm=/^(.*?)\s*(?:[;,]|\()?\s*(\d+)\s*(?:men|models?|strong)\b\)?\s*(.*)$/i.exec(name))){name=(mm[1]+' '+mm[3]).trim();models=+mm[2]}
       unit={role:m[1].trim(),name,models,pts:costs(t),dets:[]};
       for(const r of rest)unit.dets.push(...items(r));
       continue}
