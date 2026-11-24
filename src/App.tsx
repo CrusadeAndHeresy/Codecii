@@ -826,6 +826,7 @@ function LibraryPane({ onChange, version, onErased }: { onChange: () => void; ve
         <h3>Account</h3>
         <button className="small-btn" onClick={() => { void signOut(); }}>Sign out</button>
       </section>
+      <AboutCard />
     </div>
   );
 }
@@ -840,6 +841,19 @@ function InstallHint() {
       <h3>Hide the address bar</h3>
       <p className="muted small">You're in a browser tab. On iPhone: Share, then Add to Home Screen, keep "Open as Web App" on, and open Codecii from the new icon. On Android: menu, then Install app.</p>
       <button className="small-btn" onClick={() => { try { localStorage.setItem('install-hint', 'off'); } catch { /* storage unavailable */ } setHidden(true); }}>Got it</button>
+    </section>
+  );
+}
+
+declare const __APP_VERSION__: string, __APP_COMMIT__: string, __APP_BUILT__: string;
+// Which build is this phone running? Compare the build line with the latest deploy.
+function AboutCard() {
+  const built = new Date(__APP_BUILT__);
+  return (
+    <section>
+      <h3>About Codecii</h3>
+      <p className="small">Version {__APP_VERSION__}{__APP_COMMIT__ ? ` (${__APP_COMMIT__})` : ''}</p>
+      <p className="muted small">Built {isNaN(built.getTime()) ? 'unknown' : built.toLocaleString()}. The app updates itself when you open it after a new release; if the build line looks old, close it fully and open it again.</p>
     </section>
   );
 }

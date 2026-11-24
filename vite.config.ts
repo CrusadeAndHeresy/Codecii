@@ -2,10 +2,20 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { viteSingleFile } from 'vite-plugin-singlefile';
+import { execSync } from 'node:child_process';
+import pkg from './package.json';
+
+// shown on the About card so you can tell which build a phone is running
+const commit = (process.env.CF_PAGES_COMMIT_SHA || (() => { try { return execSync('git rev-parse HEAD').toString(); } catch { return ''; } })()).trim().slice(0, 7);
 
 // `npm run build`   → installable offline PWA (dist/)
 // `npm run preview:single` → one self-contained HTML file for quick previews (dist-single/)
 export default defineConfig(({ mode }) => ({
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+    __APP_COMMIT__: JSON.stringify(commit),
+    __APP_BUILT__: JSON.stringify(new Date().toISOString()),
+  },
   plugins: [
     react(),
     mode === 'single'
