@@ -41,7 +41,16 @@ export interface RuleParam {
 
 export type Tier = 'core' | 'expanded';
 
+export interface MissionTag {
+  gameType: string;
+  path?: string[];       // sub-type, then sub-sub-type (e.g. "Legendary")
+  maps?: string[];       // names of Deployment Map entries. A repeated name is a bigger share of the dice; one name and no default = tied to the mission
+  mapDefault?: string;   // the map the book uses unless players choose an alternative from `maps`
+  variants?: string[];   // ways to play it ("Escalation", "Hammerblow"); the first is the book's default
+}
+
 export interface Rule {
+  mission?: MissionTag;
   id: string;            // "<editionId>:<slug>" or "<editionId>:<slug>~<faction>"
   editionId: string;
   name: string;

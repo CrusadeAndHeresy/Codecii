@@ -32,6 +32,7 @@ export async function applyImport(db: LibraryDB, plan: ImportPlan) {
             ...(old.tierBy === 'user' || !r.tier ? {} : { tier: r.tier, tierBy: 'import' as const }),
             category: r.category || old.category,
             supersedes: r.supersedes ?? old.supersedes,
+            mission: r.mission ?? old.mission,
             overridesRuleId: r.overridesRuleId ?? old.overridesRuleId,
             updatedAt: r.updatedAt,
           }
