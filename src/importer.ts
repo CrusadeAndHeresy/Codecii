@@ -33,6 +33,7 @@ export interface ImportRule {
   name: string; aliases?: string[]; category: string; parameters?: RuleParam[]; phase?: string; section?: string; tier?: Tier;
   summary?: string; fullText?: string; page?: string | number; tags?: string[]; related?: string[]; images?: string[];
   faction?: string; overrides?: string;
+  mission?: { gameType: string; path?: string[] };
   supersedes?: { edition: string; name: string };
   status?: VerifyStatus; extractedBy?: Printing['extractedBy']; confidence?: number;
 }
@@ -163,6 +164,10 @@ export function planImport(raw: unknown, now = Date.now()): ImportPlan {
       return libId;
     }).filter((x): x is string => !!x);
 
+    const m = r.mission;
+    if (m !== undefined && (!str(m?.gameType) || (m.path !== undefined && !(Array.isArray(m.path) && m.path.every(str)))))
+      return err(`${at}.mission`, 'Needs "gameType", and "path" as a list of names.');
+
     const id = ruleIdFor(r.name, r.faction);
     if (seen.has(id)) return err(at, `Duplicate of rules[${seen.get(id)}] in this file.`);
     seen.set(id, i);
@@ -175,7 +180,7 @@ export function planImport(raw: unknown, now = Date.now()): ImportPlan {
       tags: r.tags ?? [], relatedRuleIds: (r.related ?? []).map((n) => ruleIdFor(parseRuleRef(n).name)),
       faction: r.faction, overridesRuleId: r.overrides ? ruleIdFor(r.overrides) : undefined,
       supersedes: prev ? ids.rule(ids.edition(systemId, prev.edition), prev.name) : undefined,
-      updatedAt: now,
+      mission: r.mission, updatedAt: now,
     });
     printings.push({
       id: ids.printing(id, sourceId), ruleId: id, sourceId, page: pageStr(r.page),

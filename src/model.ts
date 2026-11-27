@@ -41,7 +41,10 @@ export interface RuleParam {
 
 export type Tier = 'core' | 'expanded';
 
+export interface MissionTag { gameType: string; path?: string[] } // path = sub-type, then sub-sub-type (e.g. "Legendary")
+
 export interface Rule {
+  mission?: MissionTag;
   id: string;            // "<editionId>:<slug>" or "<editionId>:<slug>~<faction>"
   editionId: string;
   name: string;

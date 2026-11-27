@@ -9,10 +9,11 @@ import type { ReactNode } from 'react';
 import { signOut } from './auth';
 import { getTheme, setTheme, type Theme } from './theme';
 import ArmyPane from './ArmyPane';
+import GamePane from './GamePane';
 import { RuleDrop as InlineRule, RuleText } from './RuleDrops';
 import { scrollToTop, rememberScroll, restoreScroll } from './scroll';
 
-type Tab = 'army' | 'search' | 'library' | 'about';
+type Tab = 'army' | 'game' | 'search' | 'library' | 'about';
 // Navigation: "r:<ruleId>", "e:<entityId>", "c:tray" (rules together from the tray), "c:<TrayRef>" (one item's rules together)
 type Nav = string;
 
@@ -97,6 +98,7 @@ export default function App() {
   ) : (
     <>
       {tab === 'army' && <ArmyPane index={index} editionId={editionId} open={open} />}
+      {tab === 'game' && <GamePane index={index} editionId={editionId} open={open} />}
       {tab === 'search' && (
         <SearchPane index={index} editionId={editionId} version={version} onOpen={openFresh} selected={current} openCats={openCats} setOpenCats={setOpenCats}
           bookId={bookId} books={hasBooks ? index!.books : []} setBook={(b) => { setBookPick(b); setOpenCats([]); setStack([]); }} />
@@ -105,7 +107,7 @@ export default function App() {
       {tab === 'about' && <AboutPane onErased={() => { setTray([]); setStack([]); bump(); }} />}
     </>
   );
-  const onRules = tab === 'search' || tab === 'army';
+  const onRules = tab === 'search' || tab === 'army' || tab === 'game';
   const showDetail = !wide && current && onRules;
 
   return (
@@ -121,7 +123,7 @@ export default function App() {
             <>
               <div className="menu-back" onClick={() => setMenu(false)} />
               <ul className="menu" role="menu">
-                {([['army', 'Army'], ['search', 'Search'], ['library', 'Library & import'], ['about', 'About']] as [Tab, string][]).map(([t, label]) => (
+                {([['army', 'Army'], ['game', 'Game'], ['search', 'Search'], ['library', 'Library & import'], ['about', 'About']] as [Tab, string][]).map(([t, label]) => (
                   <li key={t}><button role="menuitem" className={tab === t ? 'on' : ''} onClick={() => { setTab(t); setMenu(false); if (!wide) setStack([]); }}>{label}</button></li>
                 ))}
               </ul>
@@ -141,10 +143,10 @@ export default function App() {
         </div>
       </header>
       <nav className="bgrid topnav" aria-label="Main">
-        {(['army', 'search'] as const).map((t) => (
+        {(['army', 'game', 'search'] as const).map((t) => (
           <button key={t} className={`navbtn${tab === t ? ' on' : ''}`} aria-current={tab === t ? 'page' : undefined} onClick={() => { setTab(t); if (!wide) setStack([]); }}>
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{TAB_ICONS[t]}</svg>
-            <span>{{ search: 'Search', army: 'Army' }[t]}</span>
+            <span>{{ search: 'Search', army: 'Army', game: 'Game' }[t]}</span>
           </button>
         ))}
       </nav>
@@ -168,6 +170,7 @@ export default function App() {
 }
 
 const TAB_ICONS = {
+  game: <><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 18h2v2h-2z" /></>,
   search: <><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.2-4.2" /></>,
   army: <><path d="M12 3 5 6v5c0 4.5 3 8 7 10 4-2 7-5.5 7-10V6z" /></>,
 };
@@ -175,7 +178,7 @@ const TAB_ICONS = {
 interface NavProps { open: (n: Nav) => void; back?: () => void; inTray: (r: TrayRef) => boolean; toggleTray: (r: TrayRef) => void }
 
 // Every rule category the books use, grouped so each filter covers a whole area of the rules.
-const MISSION_CATS = ['Mission', 'Mission Special Rule', 'Primary Objective', 'Secondary Objective', 'Objectives', 'Deployment Map'];
+const MISSION_CATS = ['Mission', 'Mission Special Rule', 'Primary Objective', 'Secondary Objective', 'Objectives', 'Deployment Map', 'Leviathan Mission', 'Mission Objective', 'Mission Pack Rules', 'Battlefield Asset'];
 const DETACHMENT_CATS = ['Detachment', 'Primary Detachment', 'Prime Advantage', 'Army Selection'];
 const KIND_FILTERS: { label: string; kinds?: HitKind[]; scope?: Scope }[] = [
   { label: 'All' },

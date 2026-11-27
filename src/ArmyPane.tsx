@@ -145,7 +145,8 @@ function ArmyPage({ army, ents, index, open, edit, setEdit, onBack, onSave, onDe
 
 // ---------- One unit card (all copies of the unit share it) ----------
 
-function UnitCard({ unit, entity, look, index, open, edit, fold, onChange }: {
+export function UnitCard({ readOnly, unit, entity, look, index, open, edit, fold, onChange }: {
+  readOnly?: boolean;
   unit: ArmyUnit; entity?: Entity; look: GearLookup; index: EditionIndex; open: (n: string) => void; edit: boolean;
   fold: { n: number; folded: boolean }; onChange: (u: ArmyUnit | null) => void;
 }) {
@@ -187,7 +188,7 @@ function UnitCard({ unit, entity, look, index, open, edit, fold, onChange }: {
         {entity && name.toLowerCase() !== unit.listName.toLowerCase() && <div className="muted small">Listed as “{unit.listName}”</div>}
       </div>
 
-      {unsure && <MatchCheck unit={unit} entity={entity} index={index} onChange={onChange} />}
+      {unsure && !readOnly && <MatchCheck unit={unit} entity={entity} index={index} onChange={onChange} />}
 
       {!model ? <div className="muted small">Loading…</div> : (
         <>
